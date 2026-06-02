@@ -1,0 +1,205 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  protected          Boolean  @default(false)
+  canAccessUsers     Boolean  @default(false)
+  canAccessWarehouse Boolean  @default(false)
+  canAccessGoods     Boolean  @default(false)
+  canAccessFinance   Boolean  @default(false)
+  canAccessProducts  Boolean  @default(false)
+  canAccessSales     Boolean  @default(false)
+  canAccessPurchase  Boolean  @default(false)
+  canAccessAssembly  Boolean  @default(false)
+  users              User[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  passwordHash String
+  roleId       String
+  role         Role          @relation(fields: [roleId], references: [id])
+  goodsMoves   GoodsMove[]
+  assemblyLogs AssemblyLog[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Item {
+  id             String          @id @default(uuid())
+  code           String          @unique
+  name           String
+  unit           String          @default("件")
+  description    String?
+  type           String          @default("MATERIAL") // "MATERIAL" (原材料/零件), "PRODUCT" (成品/组装件)
+  cost           Float           @default(0.0) // 成本价（原材料采购成本或组装成本）
+  goodsMoves     GoodsMove[]
+  salesOrders    SalesOrder[]
+  purchaseOrders PurchaseOrder[]
+  bomComponents  BomComponent[]  @relation("ParentItem")
+  usedInBoms     BomComponent[]  @relation("ComponentItem")
+  assemblyLogs   AssemblyLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Warehouse {
+  id             String        @id @default(uuid())
+  name           String        @unique
+  location       String?
+  description    String?
+  incomingMoves  GoodsMove[]   @relation("IncomingMoves")
+  outgoingMoves  GoodsMove[]   @relation("OutgoingMoves")
+  assemblyLogs   AssemblyLog[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model GoodsMove {
+  id              String     @id @default(uuid())
+  itemId          String
+  item            Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  qty             Int
+  type            String     // "IN" (入库), "OUT" (出库), "TRANSFER" (调拨)
+  fromWarehouseId String?
+  fromWarehouse   Warehouse? @relation("OutgoingMoves", fields: [fromWarehouseId], references: [id])
+  toWarehouseId   String?
+  toWarehouse     Warehouse? @relation("IncomingMoves", fields: [toWarehouseId], references: [id])
+  userId          String
+  user            User       @relation(fields: [userId], references: [id])
+  remarks         String?
+  createdAt       DateTime   @default(now())
+}
+
+model FinancialBill {
+  id          String   @id @default(uuid())
+  type        String   // "RECEIVABLE" (应收), "PAYABLE" (应付)
+  amount      Float
+  paidAmount  Float    @default(0.0)
+  status      String   // "UNPAID" (未收付), "PARTIAL" (部分收付), "PAID" (已收付)
+  partner     String   // 客户或供应商名称
+  description String?
+  dueDate     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PaymentAccount {
+  id        String   @id @default(uuid())
+  name      String   // 账户别名
+  type      String   // "WECHAT" (微信), "ALIPAY" (支付宝), "BANK" (银行卡), "OTHER" (其他)
+  accountNo String   // 账号/微信号/卡号
+  holder    String?  // 开户人/持有人
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id          String       @id @default(uuid())
+  code        String       @unique // 自动生成 CUST-001 格式
+  name        String       @unique
+  phone       String?
+  email       String?
+  address     String?
+  salesOrders SalesOrder[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model SalesOrder {
+  id         String   @id @default(uuid())
+  orderNo    String   @unique // 自动生成 SO-001 格式
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id])
+  qty        Int
+  price      Float
+  totalPrice Float
+  status     String   // "DRAFT", "ACTIVE", "SHIPPED", "CLOSED"
+  orderDate  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Supplier {
+  id             String          @id @default(uuid())
+  code           String          @unique // 自动生成 SUPP-001 格式
+  name           String          @unique
+  contactPerson  String?         // 联系人
+  phone          String?
+  email          String?
+  address        String?
+  remarks        String?
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model PurchaseOrder {
+  id           String    @id @default(uuid())
+  orderNo      String    @unique // 自动生成 PO-001 格式
+  supplierId   String
+  supplier     Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  itemId       String
+  item         Item      @relation(fields: [itemId], references: [id])
+  qty          Int
+  price        Float     // 采购单价
+  totalPrice   Float     // 总价
+  status       String    // "DRAFT" (草稿), "CONFIRMED" (已确认), "RECEIVED" (已收货), "CLOSED" (已关闭)
+  expectedDate DateTime? // 期望到货日期
+  receivedQty  Int       @default(0) // 已收货数量
+  orderDate    DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Currency {
+  id        String   @id @default(uuid())
+  code      String   @unique // ISO 货币代码，如 CNY, USD, EUR
+  name      String   // 货币名称，如 人民币, 美元
+  symbol    String   // 货币符号，如 ¥, $, €
+  isDefault Boolean  @default(false) // 是否为系统默认货币
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BomComponent {
+  id              String   @id @default(uuid())
+  parentItemId    String   // 成品 ID
+  parentItem      Item     @relation("ParentItem", fields: [parentItemId], references: [id], onDelete: Cascade)
+  componentItemId String   // 零件 ID
+  componentItem   Item     @relation("ComponentItem", fields: [componentItemId], references: [id], onDelete: Cascade)
+  quantity        Int      // 所需数量
+  remarks         String?  // 备注
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([parentItemId, componentItemId])
+}
+
+model AssemblyLog {
+  id              String    @id @default(uuid())
+  type            String    // "ASSEMBLE" (组装), "DISASSEMBLE" (拆解)
+  assembledItemId String    // 成品 ID
+  assembledItem   Item      @relation(fields: [assembledItemId], references: [id])
+  quantity        Int       // 组装/拆解数量
+  totalCost       Float     @default(0.0) // 总成本（零件成本总和）
+  warehouseId     String    // 操作仓库
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
+  userId          String    // 操作员
+  user            User      @relation(fields: [userId], references: [id])
+  remarks         String?   // 备注
+  createdAt       DateTime  @default(now())
+}
