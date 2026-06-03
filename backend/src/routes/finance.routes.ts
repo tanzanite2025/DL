@@ -8,6 +8,7 @@ const router = Router();
 router.get('/finance', authenticateToken, requirePermission('canAccessFinance'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const bills = await prisma.financialBill.findMany({
+      include: { currency: true },
       orderBy: { createdAt: 'desc' },
     });
     return res.json(bills);
@@ -17,21 +18,23 @@ router.get('/finance', authenticateToken, requirePermission('canAccessFinance'),
 });
 
 router.post('/finance', authenticateToken, requirePermission('canAccessFinance'), async (req: AuthenticatedRequest, res: Response) => {
-  const { type, amount, partner, description, dueDate } = req.body;
-  if (!type || !amount || !partner || !dueDate) {
-    return res.status(400).json({ error: '[CRITICAL] 账单录入缺少核心字段（收付类型、金额、往来单位、到期日）。' });
+  const { type, amount, partner, description, dueDate, currencyId } = req.body;
+  if (!type || !amount || !partner || !dueDate || !currencyId) {
+    return res.status(400).json({ error: '[CRITICAL] 账单录入缺少核心字段（收付类型、金额、往来单位、到期日、币种）。' });
   }
   try {
     const newBill = await prisma.financialBill.create({
       data: {
         type,
         amount: parseFloat(amount),
+        currencyId,
         partner,
         description,
         dueDate: new Date(dueDate),
         status: 'UNPAID',
         paidAmount: 0.0,
       },
+      include: { currency: true }
     });
     return res.json(newBill);
   } catch (error) {
@@ -41,35 +44,80 @@ router.post('/finance', authenticateToken, requirePermission('canAccessFinance')
 
 router.put('/finance/:id/pay', authenticateToken, requirePermission('canAccessFinance'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { payAmount } = req.body;
+  const { payAmount, accountId } = req.body;
 
   if (!payAmount || parseFloat(payAmount) <= 0) {
     return res.status(400).json({ error: '[CRITICAL] 核销金额必须大于零。' });
   }
+  if (!accountId) {
+    return res.status(400).json({ error: '[CRITICAL] 必须选择用于核销的收款/付款账户。' });
+  }
 
   try {
-    const bill = await prisma.financialBill.findUnique({ where: { id } });
-    if (!bill) {
-      return res.status(404).json({ error: '[CRITICAL] 未找到对应账单。' });
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      const bill = await tx.financialBill.findUnique({ where: { id } });
+      if (!bill) {
+        throw new Error('[CRITICAL] 未找到对应账单。');
+      }
 
-    const newPaidAmount = bill.paidAmount + parseFloat(payAmount);
-    if (newPaidAmount > bill.amount) {
-      return res.status(400).json({ error: `[CRITICAL] 累计核销金额超过账单总金额。账单金额: ${bill.amount}, 当前已付: ${bill.paidAmount}` });
-    }
+      const account = await tx.paymentAccount.findUnique({ where: { id: accountId } });
+      if (!account) {
+        throw new Error('[CRITICAL] 未找到选择的收付款账户。');
+      }
 
-    const status = newPaidAmount === bill.amount ? 'PAID' : 'PARTIAL';
+      if (bill.currencyId !== account.currencyId) {
+        throw new Error('[CRITICAL] 账户币种与账单币种不一致，无法核销。');
+      }
 
-    const updated = await prisma.financialBill.update({
-      where: { id },
-      data: {
-        paidAmount: newPaidAmount,
-        status,
-      },
+      const payment = parseFloat(payAmount);
+      const newPaidAmount = bill.paidAmount + payment;
+      if (newPaidAmount > bill.amount) {
+        throw new Error(`[CRITICAL] 累计核销金额超过账单总金额。账单金额: ${bill.amount}, 当前已付: ${bill.paidAmount}`);
+      }
+
+      const status = newPaidAmount === bill.amount ? 'PAID' : 'PARTIAL';
+
+      // 更新账单
+      const updatedBill = await tx.financialBill.update({
+        where: { id },
+        data: { paidAmount: newPaidAmount, status },
+        include: { currency: true }
+      });
+
+      // 计算账户余额变动
+      // 如果是 RECEIVABLE(应收)，则账户余额增加 IN
+      // 如果是 PAYABLE(应付)，则账户余额减少 OUT
+      const isReceivable = bill.type === 'RECEIVABLE';
+      const balanceChange = isReceivable ? payment : -payment;
+      const newBalance = account.balance + balanceChange;
+
+      // 更新账户余额
+      await tx.paymentAccount.update({
+        where: { id: account.id },
+        data: { balance: newBalance }
+      });
+
+      // 记录流水
+      await tx.accountTransaction.create({
+        data: {
+          accountId: account.id,
+          type: isReceivable ? 'IN' : 'OUT',
+          amount: payment,
+          balanceAfter: newBalance,
+          referenceType: 'BILL_PAYMENT',
+          referenceId: bill.id,
+          description: `核销${isReceivable ? '应收' : '应付'}账单`
+        }
+      });
+
+      return updatedBill;
     });
 
-    return res.json(updated);
-  } catch (error) {
+    return res.json(result);
+  } catch (error: any) {
+    if (error.message && error.message.startsWith('[CRITICAL]')) {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: '[CRITICAL] 核销操作失败。' });
   }
 });
@@ -88,6 +136,7 @@ router.delete('/finance/:id', authenticateToken, requirePermission('canAccessFin
 router.get('/payment-accounts', authenticateToken, requirePermission('canAccessFinance'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const accounts = await prisma.paymentAccount.findMany({
+      include: { currency: true },
       orderBy: { createdAt: 'asc' },
     });
     return res.json(accounts);
@@ -97,15 +146,34 @@ router.get('/payment-accounts', authenticateToken, requirePermission('canAccessF
 });
 
 router.post('/payment-accounts', authenticateToken, requirePermission('canAccessFinance'), async (req: AuthenticatedRequest, res: Response) => {
-  const { name, type, accountNo, holder } = req.body;
-  if (!name || !type || !accountNo) {
-    return res.status(400).json({ error: '[CRITICAL] 账户名称、类型及卡号/微信号不可为空。' });
+  const { name, type, accountNo, holder, balance, currencyId } = req.body;
+  if (!name || !type || !accountNo || !currencyId) {
+    return res.status(400).json({ error: '[CRITICAL] 账户名称、类型、卡号及币种不可为空。' });
   }
+  const initialBalance = parseFloat(balance) || 0;
+  
   try {
-    const newAccount = await prisma.paymentAccount.create({
-      data: { name, type, accountNo, holder },
+    const result = await prisma.$transaction(async (tx) => {
+      const newAccount = await tx.paymentAccount.create({
+        data: { name, type, accountNo, holder, balance: initialBalance, currencyId },
+        include: { currency: true }
+      });
+
+      if (initialBalance !== 0) {
+        await tx.accountTransaction.create({
+          data: {
+            accountId: newAccount.id,
+            type: initialBalance > 0 ? 'IN' : 'OUT',
+            amount: Math.abs(initialBalance),
+            balanceAfter: initialBalance,
+            referenceType: 'INITIAL',
+            description: '期初资金注入'
+          }
+        });
+      }
+      return newAccount;
     });
-    return res.json(newAccount);
+    return res.json(result);
   } catch (error) {
     return res.status(500).json({ error: '[CRITICAL] 创建收付款账户失败。' });
   }
@@ -113,11 +181,12 @@ router.post('/payment-accounts', authenticateToken, requirePermission('canAccess
 
 router.put('/payment-accounts/:id', authenticateToken, requirePermission('canAccessFinance'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { name, type, accountNo, holder } = req.body;
+  const { name, type, accountNo, holder, currencyId } = req.body;
   try {
     const updated = await prisma.paymentAccount.update({
       where: { id },
-      data: { name, type, accountNo, holder },
+      data: { name, type, accountNo, holder, currencyId },
+      include: { currency: true }
     });
     return res.json(updated);
   } catch (error) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge, UdsProgressBar } from '../components/uds/UdsComponents';
+import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { useI18n } from '../i18n/I18nContext';
 import { ArrowUpRight, ArrowDownLeft, DollarSign, Trash2, Edit3, CreditCard, Coins } from 'lucide-react';
 import { PaymentAccount, Currency, ShowToast } from '../types';
@@ -17,6 +18,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
   const { currencies, isLoading: curLoading, createCurrency, updateCurrency, deleteCurrency } = useCurrencies();
   const [activeTab, setActiveTab] = useState<'ledger' | 'accounts' | 'currencies'>('ledger');
   const isLoading = financeLoading || curLoading;
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 新增账单表单
   const [formType, setFormType] = useState<'RECEIVABLE' | 'PAYABLE'>('RECEIVABLE');
@@ -24,6 +26,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
   const [formPartner, setFormPartner] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formDueDate, setFormDueDate] = useState('');
+  const [formCurrencyId, setFormCurrencyId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 账单核销表单
@@ -33,9 +36,11 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
 
   // 支付账户表单
   const [accName, setAccName] = useState('');
-  const [accType, setAccType] = useState<'WECHAT' | 'ALIPAY' | 'BANK' | 'OTHER'>('WECHAT');
+  const [accType, setAccType] = useState('');
   const [accNo, setAccNo] = useState('');
   const [accHolder, setAccHolder] = useState('');
+  const [accBalance, setAccBalance] = useState('');
+  const [accCurrencyId, setAccCurrencyId] = useState('');
   const [editingAccId, setEditingAccId] = useState<string | null>(null);
 
   // 货币表单
@@ -54,7 +59,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
       showToast(t('errBillAmountPositive'), 'error');
       return;
     }
-    if (!formPartner.trim() || !formDueDate) {
+    if (!formPartner.trim() || !formDueDate || !formCurrencyId) {
       showToast(t('errBillRequired'), 'error');
       return;
     }
@@ -64,6 +69,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
       await createBill({
         type: formType,
         amount: amountVal,
+        currencyId: formCurrencyId,
         partner: formPartner,
         description: formDescription,
         dueDate: formDueDate
@@ -74,6 +80,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
       setFormPartner('');
       setFormDescription('');
       setFormDueDate('');
+      setFormCurrencyId('');
     } catch (error: any) {
       showToast(error.message || t('errBillRecordFailed'), 'error');
     } finally {
@@ -131,33 +138,25 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
   // 保存收款账户（添加或编辑）
   const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accName.trim() || !accNo.trim()) {
-      showToast(t('errAccRequired'), 'error');
+    if (!accName.trim() || !accNo.trim() || !accCurrencyId) {
+      showToast('请填写账户名称、账号及账户币种', 'error');
       return;
     }
 
-    const payload = {
-      name: accName.trim(),
-      type: accType,
-      accountNo: accNo.trim(),
-      holder: accHolder.trim() || null
-    };
-
     try {
       if (editingAccId) {
-        await updateAccount(editingAccId, payload);
+        await updateAccount(editingAccId, { name: accName, type: accType, accountNo: accNo, holder: accHolder, currencyId: accCurrencyId });
+        showToast(t('accUpdatedSuccess'), 'success');
       } else {
-        await createAccount(payload);
+        await createAccount({ name: accName, type: accType, accountNo: accNo, holder: accHolder, balance: accBalance, currencyId: accCurrencyId });
+        showToast(t('accCreatedSuccess'), 'success');
       }
-
-      showToast(
-        editingAccId ? t('accUpdatedSuccess') : t('accCreatedSuccess'), 
-        'success'
-      );
       setAccName('');
       setAccType('WECHAT');
       setAccNo('');
       setAccHolder('');
+      setAccBalance('');
+      setAccCurrencyId('');
       setEditingAccId(null);
     } catch (error: any) {
       showToast(error.message || t('errAccSaveFailed'), 'error');
@@ -166,11 +165,13 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
 
   // 触发编辑账户
   const startEditAccount = (acc: PaymentAccount) => {
-    setEditingAccId(acc.id);
     setAccName(acc.name);
     setAccType(acc.type);
     setAccNo(acc.accountNo);
     setAccHolder(acc.holder || '');
+    setAccBalance(''); // 编辑时不修改初始余额
+    setAccCurrencyId(acc.currencyId);
+    setEditingAccId(acc.id);
   };
 
   // 取消编辑账户
@@ -261,23 +262,27 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
     }
   };
 
-  // 计算统计概要
-  const summary = bills.reduce(
-    (acc, bill) => {
-      const remaining = bill.amount - bill.paidAmount;
-      if (bill.type === 'RECEIVABLE') {
-        acc.arTotal += bill.amount;
-        acc.arPaid += bill.paidAmount;
-        acc.arPending += remaining;
-      } else {
-        acc.apTotal += bill.amount;
-        acc.apPaid += bill.paidAmount;
-        acc.apPending += remaining;
-      }
-      return acc;
-    },
-    { arTotal: 0, arPaid: 0, arPending: 0, apTotal: 0, apPaid: 0, apPending: 0 }
-  );
+  // 计算统计概要 (按币种分组)
+  const summariesByCurrency = bills.reduce((acc, bill) => {
+    const curId = bill.currencyId || 'unknown';
+    if (!acc[curId]) {
+      acc[curId] = {
+        symbol: bill.currency?.symbol || '',
+        arTotal: 0, arPaid: 0, arPending: 0, apTotal: 0, apPaid: 0, apPending: 0
+      };
+    }
+    const remaining = bill.amount - bill.paidAmount;
+    if (bill.type === 'RECEIVABLE') {
+      acc[curId].arTotal += bill.amount;
+      acc[curId].arPaid += bill.paidAmount;
+      acc[curId].arPending += remaining;
+    } else {
+      acc[curId].apTotal += bill.amount;
+      acc[curId].apPaid += bill.paidAmount;
+      acc[curId].apPending += remaining;
+    }
+    return acc;
+  }, {} as Record<string, { symbol: string, arTotal: number, arPaid: number, arPending: number, apTotal: number, apPaid: number, apPending: number }>);
 
   if (isLoading && bills.length === 0) {
     return (
@@ -297,6 +302,12 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
         title={t('financeHeader')}
         description={t('financeDesc')}
       />
+
+      <div className="flex justify-end">
+        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
+          审计日志
+        </UdsButton>
+      </div>
 
       {/* 双页签切换选项卡 rounded-[24px] 契合 UDS 1.0 */}
       <div className="flex bg-[#121214] p-1.5 rounded-2xl self-start gap-2">
@@ -335,60 +346,67 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
       {activeTab === 'ledger' ? (
         <>
           {/* 财务看板概要 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* 应收款卡片 */}
-            <UdsCard title={t('arTotal')}>
-              <div className="flex flex-col gap-4 mt-2">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('totalAmount')}</span>
-                    <span className="text-lg font-mono font-bold text-white">¥{summary.arTotal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div>
-                    <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('receivedAmount')}</span>
-                    <span className="text-lg font-mono font-bold text-emerald-500">¥{summary.arPaid.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div>
-                    <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('pendingRecovery')}</span>
-                    <span className="text-lg font-mono font-bold text-amber-500">¥{summary.arPending.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
+          <div className="flex flex-col gap-8">
+            {Object.entries(summariesByCurrency).map(([curId, summary]) => (
+              <div key={curId} className="grid grid-cols-1 md:grid-cols-2 gap-8 relative p-4 rounded-3xl border border-dashed border-white/10 bg-white/5">
+                <div className="absolute -top-3 left-6 px-2 bg-[#121214] text-[10px] font-black uppercase tracking-widest text-primary border border-dashed border-primary/30 rounded">
+                  {summary.symbol} {t('ledgerCurrency') || '币种账本'}
                 </div>
-                <div className="flex flex-col gap-1.5 mt-2">
-                  <div className="flex justify-between text-[9px] font-mono text-neutral-400">
-                    <span>{t('recoveryProgress')}</span>
-                    <span>{summary.arTotal > 0 ? ((summary.arPaid / summary.arTotal) * 100).toFixed(1) : 0}%</span>
+                {/* 应收款卡片 */}
+                <UdsCard title={t('arTotal')} className="border-none bg-transparent shadow-none p-0">
+                  <div className="flex flex-col gap-4 mt-2">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('totalAmount')}</span>
+                        <span className="text-lg font-mono font-bold text-white">{summary.symbol}{summary.arTotal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('receivedAmount')}</span>
+                        <span className="text-lg font-mono font-bold text-emerald-500">{summary.symbol}{summary.arPaid.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('pendingRecovery')}</span>
+                        <span className="text-lg font-mono font-bold text-amber-500">{summary.symbol}{summary.arPending.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <div className="flex justify-between text-[9px] font-mono text-neutral-400">
+                        <span>{t('recoveryProgress')}</span>
+                        <span>{summary.arTotal > 0 ? ((summary.arPaid / summary.arTotal) * 100).toFixed(1) : 0}%</span>
+                      </div>
+                      <UdsProgressBar value={summary.arPaid} max={summary.arTotal || 1} />
+                    </div>
                   </div>
-                  <UdsProgressBar value={summary.arPaid} max={summary.arTotal || 1} />
-                </div>
-              </div>
-            </UdsCard>
+                </UdsCard>
 
-            {/* 应付款卡片 */}
-            <UdsCard title={t('apTotal')}>
-              <div className="flex flex-col gap-4 mt-2">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('totalAmount')}</span>
-                    <span className="text-lg font-mono font-bold text-white">¥{summary.apTotal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                {/* 应付款卡片 */}
+                <UdsCard title={t('apTotal')} className="border-none bg-transparent shadow-none p-0">
+                  <div className="flex flex-col gap-4 mt-2">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('totalAmount')}</span>
+                        <span className="text-lg font-mono font-bold text-white">{summary.symbol}{summary.apTotal.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('paidAmount')}</span>
+                        <span className="text-lg font-mono font-bold text-emerald-500">{summary.symbol}{summary.apPaid.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('pendingPayment')}</span>
+                        <span className="text-lg font-mono font-bold text-rose-500">{summary.symbol}{summary.apPending.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <div className="flex justify-between text-[9px] font-mono text-neutral-400">
+                        <span>{t('paymentProgress')}</span>
+                        <span>{summary.apTotal > 0 ? ((summary.apPaid / summary.apTotal) * 100).toFixed(1) : 0}%</span>
+                      </div>
+                      <UdsProgressBar value={summary.apPaid} max={summary.apTotal || 1} />
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('paidAmount')}</span>
-                    <span className="text-lg font-mono font-bold text-emerald-500">¥{summary.apPaid.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div>
-                    <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-wider block">{t('pendingPayment')}</span>
-                    <span className="text-lg font-mono font-bold text-rose-500">¥{summary.apPending.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5 mt-2">
-                  <div className="flex justify-between text-[9px] font-mono text-neutral-400">
-                    <span>{t('paymentProgress')}</span>
-                    <span>{summary.apTotal > 0 ? ((summary.apPaid / summary.apTotal) * 100).toFixed(1) : 0}%</span>
-                  </div>
-                  <UdsProgressBar value={summary.apPaid} max={summary.apTotal || 1} />
-                </div>
+                </UdsCard>
               </div>
-            </UdsCard>
+            ))}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -414,17 +432,30 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                     disabled={isSubmitting}
                     required
                   />
-                  <UdsInput
-                    label={t('amountLabel')}
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="0.00"
-                    value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <UdsInput
+                      label={t('amountLabel')}
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      value={formAmount}
+                      onChange={(e) => setFormAmount(e.target.value)}
+                      disabled={isSubmitting}
+                      required
+                    />
+                    <UdsSelect
+                      label="币种"
+                      options={[
+                        { value: '', label: '选择币种' },
+                        ...currencies.map(c => ({ value: c.id, label: `${c.name} (${c.symbol})` }))
+                      ]}
+                      value={formCurrencyId}
+                      onChange={(e) => setFormCurrencyId(e.target.value)}
+                      disabled={isSubmitting}
+                      required
+                    />
+                  </div>
                   <UdsInput
                     label={t('dueDateLabel')}
                     type="date"
@@ -469,9 +500,9 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                     <form onSubmit={handlePayBill} className="flex flex-col gap-4">
                       <div className="text-[10px] text-neutral-400 font-mono flex flex-col gap-1.5 p-3 rounded-2xl bg-black/30 mb-2">
                         <div>{t('billPartner')}: <span className="text-white font-bold">{bill.partner}</span></div>
-                        <div>{t('totalAmount')}: <span className="text-white font-bold">¥{bill.amount.toFixed(2)}</span></div>
-                        <div>{t('receivedAmount')}: <span className="text-emerald-500 font-bold">¥{bill.paidAmount.toFixed(2)}</span></div>
-                        <div>{t('pendingRecovery')}/{t('pendingPayment')}: <span className="text-amber-500 font-bold">¥{remaining.toFixed(2)}</span></div>
+                        <div>{t('totalAmount')}: <span className="text-white font-bold">{bill.currency?.symbol}{bill.amount.toFixed(2)}</span></div>
+                        <div>{t('receivedAmount')}: <span className="text-emerald-500 font-bold">{bill.currency?.symbol}{bill.paidAmount.toFixed(2)}</span></div>
+                        <div>{t('pendingRecovery')}/{t('pendingPayment')}: <span className="text-amber-500 font-bold">{bill.currency?.symbol}{remaining.toFixed(2)}</span></div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -487,24 +518,26 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                           required
                         />
 
-                        <UdsSelect
-                          label={t('writeOffAccountLabel')}
-                          options={[
-                            { value: '', label: t('noAccountSpecified') },
-                            ...accounts.map(a => {
-                              let typeStr = 'OTHER';
-                              if (a.type === 'WECHAT') typeStr = t('wechatId');
-                              if (a.type === 'ALIPAY') typeStr = t('alipayAccount');
-                              if (a.type === 'BANK') typeStr = t('bankCardNo');
-                              return {
-                                value: a.id,
-                                label: `${a.name} (${typeStr}: ${a.accountNo})`
-                              };
-                            })
-                          ]}
-                          value={selectedAccountId}
-                          onChange={(e) => setSelectedAccountId(e.target.value)}
-                        />
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                            选择支付账户 (仅限同币种)
+                          </label>
+                          <select
+                            className="w-full h-11 px-4 rounded-2xl border-none bg-neutral-900 text-sm text-white focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer"
+                            value={selectedAccountId}
+                            onChange={(e) => setSelectedAccountId(e.target.value)}
+                            required
+                          >
+                            <option value="">{t('noAccountSpecified')}</option>
+                            {accounts
+                              .filter(a => a.currencyId === bill.currencyId)
+                              .map(a => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name} ({a.type}) - 余额: {a.currency?.symbol || ''}{a.balance?.toFixed(2) || '0.00'}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
                       </div>
                       
                       <UdsButton type="submit" variant="primary" className="w-full">
@@ -585,9 +618,9 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                             </td>
                             <td className="py-3.5 text-right font-mono font-semibold">
                               <div className="flex flex-col items-end">
-                                <span className="text-neutral-200">¥{bill.amount.toFixed(2)}</span>
+                                <span className="text-neutral-200">{bill.currency?.symbol}{bill.amount.toFixed(2)}</span>
                                 {bill.paidAmount > 0 && (
-                                  <span className="text-[9px] text-neutral-500">¥{bill.paidAmount.toFixed(2)}</span>
+                                  <span className="text-[9px] text-neutral-500">{bill.currency?.symbol}{bill.paidAmount.toFixed(2)}</span>
                                 )}
                               </div>
                             </td>
@@ -648,45 +681,57 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
             >
               <form onSubmit={handleSaveAccount} className="flex flex-col gap-4">
                 <UdsInput
-                  label={t('accountNameLabel')}
-                  placeholder="如: 总理微信 / 对公招行"
+                  label="内部显示名称"
+                  placeholder="如: 公司基本户 / 销售现金库"
                   value={accName}
                   onChange={(e) => setAccName(e.target.value)}
                   required
                 />
 
-                <UdsSelect
-                  label={t('accountTypeLabel')}
-                  options={[
-                    { value: 'WECHAT', label: t('typeWechat') },
-                    { value: 'ALIPAY', label: t('typeAlipay') },
-                    { value: 'BANK', label: t('typeBank') },
-                    { value: 'OTHER', label: t('typeOther') }
-                  ]}
+                <UdsInput
+                  label="所属机构 / 支付渠道"
+                  placeholder="如: 招商银行 / 支付宝 / PayPal"
                   value={accType}
-                  onChange={(e) => setAccType(e.target.value as any)}
+                  onChange={(e) => setAccType(e.target.value)}
+                  required
                 />
 
                 <UdsInput
-                  label={t('accountNoLabel')}
-                  placeholder={
-                    accType === 'WECHAT' 
-                      ? t('wechatPlaceholder') 
-                      : accType === 'ALIPAY' 
-                      ? t('alipayPlaceholder') 
-                      : t('bankPlaceholder')
-                  }
+                  label="账号 / 卡号"
+                  placeholder="请输入银行卡号或平台账号"
                   value={accNo}
                   onChange={(e) => setAccNo(e.target.value)}
                   required
                 />
 
                 <UdsInput
-                  label={t('holderLabel')}
-                  placeholder="如: 张三"
+                  label="开户人 / 持有人姓名"
+                  placeholder="如: 张三 / 某某科技有限公司"
                   value={accHolder}
                   onChange={(e) => setAccHolder(e.target.value)}
                 />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <UdsSelect
+                    label="账户币种"
+                    options={[
+                      { value: '', label: '请选择币种' },
+                      ...currencies.map(c => ({ value: c.id, label: `${c.name} (${c.symbol})` }))
+                    ]}
+                    value={accCurrencyId}
+                    onChange={(e) => setAccCurrencyId(e.target.value)}
+                  />
+                  <UdsInput
+                    label="初始余额 (期初)"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={accBalance}
+                    onChange={(e) => setAccBalance(e.target.value)}
+                    disabled={!!editingAccId} // 编辑时不修改初始余额
+                    required={!editingAccId}
+                  />
+                </div>
 
                 <div className="border-t border-solid border-white/5 pt-4">
                   <UdsButton type="submit" variant="primary" className="w-full">
@@ -713,12 +758,12 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-semibold text-neutral-200">{acc.name}</h4>
-                          <UdsBadge status={acc.type === 'WECHAT' ? 'healthy' : acc.type === 'ALIPAY' ? 'alert' : 'default'}>
+                          <UdsBadge status="default">
                             {acc.type}
                           </UdsBadge>
                         </div>
                         <p className="text-xs font-mono text-neutral-400 mt-1 uppercase tracking-wider">
-                          账号/ID: <span className="text-white font-bold">{acc.accountNo}</span>
+                          账号: <span className="text-white font-bold">{acc.accountNo}</span>
                         </p>
                         {acc.holder && (
                           <p className="text-[9px] text-neutral-500 font-sans mt-0.5">
@@ -727,9 +772,16 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 self-end md:self-center">
-                      <UdsButton
-                        variant="ghost"
+                    <div className="flex flex-col items-end gap-2 md:items-center md:flex-row">
+                      <div className="flex flex-col items-end mr-4">
+                        <span className="text-[10px] font-black tracking-widest uppercase text-neutral-500">当前余额</span>
+                        <span className="font-mono text-lg font-bold text-emerald-400">
+                          {acc.currency?.symbol || ''}{acc.balance?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 self-end md:self-center">
+                        <UdsButton
+                          variant="ghost"
                         className="h-8 !p-2 rounded-full text-neutral-400 hover:text-white"
                         onClick={() => startEditAccount(acc)}
                       >
@@ -744,6 +796,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                       </UdsButton>
                     </div>
                   </div>
+                </div>
                 ))}
                 {accounts.length === 0 && (
                   <span className="text-[10px] font-mono text-neutral-600 text-center py-4 block">
@@ -868,6 +921,12 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
           </div>
         </div>
       )}
+      <AuditLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        resource="finance"
+        title={'财务审计'}
+      />
     </div>
   );
 };

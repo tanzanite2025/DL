@@ -52,6 +52,10 @@ export interface Item {
   name: string;
   unit: string;
   description?: string | null;
+  cost: number;
+  type?: string;
+  currencyId?: string;
+  currency?: Currency;
 }
 
 // --- 货物流转 ---
@@ -71,6 +75,24 @@ export interface GoodsMove {
   createdAt: string;
 }
 
+export interface AuditLog {
+  id: string;
+  userId: string | null;
+  usernameSnapshot: string | null;
+  roleIdSnapshot: string | null;
+  action: string;
+  resource: string;
+  resourceId: string | null;
+  method: string;
+  path: string;
+  status: number;
+  ip: string | null;
+  userAgent: string | null;
+  durationMs: number | null;
+  meta?: Record<string, any> | null;
+  createdAt: string;
+}
+
 export interface StockMatrixRow {
   itemCode: string;
   itemName: string;
@@ -84,6 +106,8 @@ export interface FinancialBill {
   id: string;
   type: 'RECEIVABLE' | 'PAYABLE';
   amount: number;
+  currencyId?: string;
+  currency?: Currency;
   paidAmount: number;
   status: 'UNPAID' | 'PARTIAL' | 'PAID';
   partner: string;
@@ -92,12 +116,28 @@ export interface FinancialBill {
   createdAt: string;
 }
 
+export interface AccountTransaction {
+  id: string;
+  accountId: string;
+  type: 'IN' | 'OUT';
+  amount: number;
+  balanceAfter: number;
+  referenceType: string;
+  referenceId: string | null;
+  description: string | null;
+  createdAt: string;
+}
+
 export interface PaymentAccount {
   id: string;
   name: string;
-  type: 'WECHAT' | 'ALIPAY' | 'BANK' | 'OTHER';
+  type: string;
   accountNo: string;
   holder: string | null;
+  balance: number;
+  currencyId: string;
+  currency?: Currency;
+  transactions?: AccountTransaction[];
 }
 
 export interface Currency {
@@ -141,6 +181,8 @@ export interface PurchaseOrder {
   qty: number;
   price: number;
   totalPrice: number;
+  currencyId?: string;
+  currency?: Currency;
   status: 'DRAFT' | 'CONFIRMED' | 'RECEIVED' | 'CLOSED';
   expectedDate: string | null;
   receivedQty: number;
@@ -159,6 +201,8 @@ export interface SalesOrder {
   qty: number;
   price: number;
   totalPrice: number;
+  currencyId?: string;
+  currency?: Currency;
   status: 'DRAFT' | 'ACTIVE' | 'SHIPPED' | 'CLOSED';
   orderDate: string;
 }

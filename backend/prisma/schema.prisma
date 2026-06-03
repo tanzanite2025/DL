@@ -19,6 +19,7 @@ model Role {
   canAccessSales     Boolean  @default(false)
   canAccessPurchase  Boolean  @default(false)
   canAccessAssembly  Boolean  @default(false)
+  canAccessAudit     Boolean  @default(false)
   users              User[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -32,8 +33,17 @@ model User {
   role         Role          @relation(fields: [roleId], references: [id])
   goodsMoves   GoodsMove[]
   assemblyLogs AssemblyLog[]
+  auditLogs    AuditLog[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+model Unit {
+  id        String   @id @default(uuid())
+  code      String   @unique   // 如 PCS, SET, KG
+  name      String             // 如 件, 套, 千克
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Item {
@@ -42,8 +52,10 @@ model Item {
   name           String
   unit           String          @default("件")
   description    String?
-  type           String          @default("MATERIAL") // "MATERIAL" (原材料/零件), "PRODUCT" (成品/组装件)
-  cost           Float           @default(0.0) // 成本价（原材料采购成本或组装成本）
+  type           String          @default("MATERIAL") // "MATERIAL" (原材料/物料), "PRODUCT" (成品/组合物料)
+  cost           Float           @default(0.0) // 成本价（原材料采购成本或组合成本）
+  currencyId     String
+  currency       Currency        @relation(fields: [currencyId], references: [id])
   goodsMoves     GoodsMove[]
   salesOrders    SalesOrder[]
   purchaseOrders PurchaseOrder[]
@@ -86,6 +98,8 @@ model FinancialBill {
   id          String   @id @default(uuid())
   type        String   // "RECEIVABLE" (应收), "PAYABLE" (应付)
   amount      Float
+  currencyId  String
+  currency    Currency @relation(fields: [currencyId], references: [id])
   paidAmount  Float    @default(0.0)
   status      String   // "UNPAID" (未收付), "PARTIAL" (部分收付), "PAID" (已收付)
   partner     String   // 客户或供应商名称
@@ -96,13 +110,30 @@ model FinancialBill {
 }
 
 model PaymentAccount {
-  id        String   @id @default(uuid())
-  name      String   // 账户别名
-  type      String   // "WECHAT" (微信), "ALIPAY" (支付宝), "BANK" (银行卡), "OTHER" (其他)
-  accountNo String   // 账号/微信号/卡号
-  holder    String?  // 开户人/持有人
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String               @id @default(uuid())
+  name         String               // 账户别名
+  type         String               // 账户机构
+  accountNo    String               // 账号
+  holder       String?              // 持有人
+  balance      Float                @default(0.0) // 当前余额
+  currencyId   String
+  currency     Currency             @relation(fields: [currencyId], references: [id])
+  transactions AccountTransaction[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model AccountTransaction {
+  id               String         @id @default(uuid())
+  accountId        String
+  account          PaymentAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type             String         // "IN" (收入), "OUT" (支出)
+  amount           Float          // 交易金额 (正数)
+  balanceAfter     Float          // 交易后余额
+  referenceType    String         // "INITIAL" (期初), "BILL_PAYMENT" (账单核销)
+  referenceId      String?        // 关联账单ID等
+  description      String?        // 交易描述
+  createdAt        DateTime       @default(now())
 }
 
 model Customer {
@@ -127,6 +158,8 @@ model SalesOrder {
   qty        Int
   price      Float
   totalPrice Float
+  currencyId String
+  currency   Currency @relation(fields: [currencyId], references: [id])
   status     String   // "DRAFT", "ACTIVE", "SHIPPED", "CLOSED"
   orderDate  DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -157,6 +190,8 @@ model PurchaseOrder {
   qty          Int
   price        Float     // 采购单价
   totalPrice   Float     // 总价
+  currencyId   String
+  currency     Currency  @relation(fields: [currencyId], references: [id])
   status       String    // "DRAFT" (草稿), "CONFIRMED" (已确认), "RECEIVED" (已收货), "CLOSED" (已关闭)
   expectedDate DateTime? // 期望到货日期
   receivedQty  Int       @default(0) // 已收货数量
@@ -166,13 +201,19 @@ model PurchaseOrder {
 }
 
 model Currency {
-  id        String   @id @default(uuid())
-  code      String   @unique // ISO 货币代码，如 CNY, USD, EUR
-  name      String   // 货币名称，如 人民币, 美元
-  symbol    String   // 货币符号，如 ¥, $, €
-  isDefault Boolean  @default(false) // 是否为系统默认货币
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String          @id @default(uuid())
+  code           String          @unique // ISO 货币代码，如 CNY, USD, EUR
+  name           String          // 货币名称，如 人民币, 美元
+  symbol         String          // 货币符号，如 ¥, $, €
+  isDefault      Boolean         @default(false) // 是否为系统默认货币
+  items          Item[]
+  financialBills FinancialBill[]
+  salesOrders    SalesOrder[]
+  purchaseOrders PurchaseOrder[]
+  assemblyLogs   AssemblyLog[]
+  paymentAccounts PaymentAccount[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model BomComponent {
@@ -196,10 +237,35 @@ model AssemblyLog {
   assembledItem   Item      @relation(fields: [assembledItemId], references: [id])
   quantity        Int       // 组装/拆解数量
   totalCost       Float     @default(0.0) // 总成本（零件成本总和）
+  currencyId      String
+  currency        Currency  @relation(fields: [currencyId], references: [id])
   warehouseId     String    // 操作仓库
   warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
   userId          String    // 操作员
   user            User      @relation(fields: [userId], references: [id])
   remarks         String?   // 备注
   createdAt       DateTime  @default(now())
+}
+
+model AuditLog {
+  id               String    @id @default(uuid())
+  userId           String?
+  user             User?     @relation(fields: [userId], references: [id])
+  usernameSnapshot String?
+  roleIdSnapshot   String?
+  action           String
+  resource         String
+  resourceId       String?
+  method           String
+  path             String
+  status           Int
+  ip               String?
+  userAgent        String?
+  durationMs       Int?
+  meta             String?
+  createdAt        DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([resource])
 }

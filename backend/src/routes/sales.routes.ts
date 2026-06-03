@@ -116,6 +116,7 @@ router.get('/sales-orders', authenticateToken, requirePermission('canAccessSales
       include: {
         customer: true,
         item: true,
+        currency: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -127,9 +128,9 @@ router.get('/sales-orders', authenticateToken, requirePermission('canAccessSales
 });
 
 router.post('/sales-orders', authenticateToken, requirePermission('canAccessSales'), async (req: AuthenticatedRequest, res: Response) => {
-  const { customerId, itemId, qty, price, status } = req.body;
-  if (!customerId || !itemId || qty === undefined || price === undefined) {
-    return res.status(400).json({ error: '[CRITICAL] 销售订单录入缺少核心字段（客户、物料、数量、单价）。' });
+  const { customerId, itemId, qty, price, status, currencyId } = req.body;
+  if (!customerId || !itemId || qty === undefined || price === undefined || !currencyId) {
+    return res.status(400).json({ error: '[CRITICAL] 销售订单录入缺少核心字段（客户、物料、数量、单价、币种）。' });
   }
   const parsedQty = parseInt(qty);
   const parsedPrice = parseFloat(price);
@@ -169,11 +170,13 @@ router.post('/sales-orders', authenticateToken, requirePermission('canAccessSale
         qty: parsedQty,
         price: parsedPrice,
         totalPrice,
+        currencyId,
         status: status || 'DRAFT',
       },
       include: {
         customer: true,
         item: true,
+        currency: true,
       }
     });
     return res.json(newOrder);
@@ -185,9 +188,9 @@ router.post('/sales-orders', authenticateToken, requirePermission('canAccessSale
 
 router.put('/sales-orders/:id', authenticateToken, requirePermission('canAccessSales'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { customerId, itemId, qty, price, status } = req.body;
-  if (!customerId || !itemId || qty === undefined || price === undefined || !status) {
-    return res.status(400).json({ error: '[CRITICAL] 更新销售订单缺少核心字段（客户、物料、数量、单价、状态）。' });
+  const { customerId, itemId, qty, price, status, currencyId } = req.body;
+  if (!customerId || !itemId || qty === undefined || price === undefined || !status || !currencyId) {
+    return res.status(400).json({ error: '[CRITICAL] 更新销售订单缺少核心字段（客户、物料、数量、单价、状态、币种）。' });
   }
   const parsedQty = parseInt(qty);
   const parsedPrice = parseFloat(price);
@@ -219,11 +222,13 @@ router.put('/sales-orders/:id', authenticateToken, requirePermission('canAccessS
         qty: parsedQty,
         price: parsedPrice,
         totalPrice,
+        currencyId,
         status,
       },
       include: {
         customer: true,
         item: true,
+        currency: true,
       }
     });
     return res.json(updated);
@@ -259,7 +264,7 @@ router.post('/sales-orders/:id/create-bill', authenticateToken, requirePermissio
   try {
     const order = await prisma.salesOrder.findUnique({
       where: { id },
-      include: { customer: true }
+      include: { customer: true, currency: true }
     });
 
     if (!order) {
@@ -275,6 +280,7 @@ router.post('/sales-orders/:id/create-bill', authenticateToken, requirePermissio
       data: {
         type: 'RECEIVABLE',
         amount: order.totalPrice,
+        currencyId: order.currencyId,
         paidAmount: 0.0,
         status: 'UNPAID',
         partner: order.customer.name,
@@ -286,7 +292,7 @@ router.post('/sales-orders/:id/create-bill', authenticateToken, requirePermissio
     const updatedOrder = await prisma.salesOrder.update({
       where: { id },
       data: { status: 'CLOSED' },
-      include: { customer: true, item: true }
+      include: { customer: true, item: true, currency: true }
     });
 
     return res.json({

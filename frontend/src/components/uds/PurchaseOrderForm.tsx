@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { UdsCard, UdsButton, UdsInput, UdsSelect } from './UdsComponents';
 import { useI18n } from '../../i18n/I18nContext';
-import { useItems } from '../../hooks/useItems';
 import { useSuppliers } from '../../hooks/useSuppliers';
-import { ShowToast } from '../../types';
+import { useCurrencies } from '../../hooks/useCurrencies';
+import { useItems } from '../../hooks/useItems';
+import { Item, ShowToast } from '../../types';
 
 interface PurchaseOrderFormProps {
   showToast: ShowToast;
@@ -23,6 +24,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   const { t } = useI18n();
   const { items, fetchItems } = useItems();
   const { suppliers, fetchSuppliers } = useSuppliers();
+  const { currencies, fetchCurrencies } = useCurrencies();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,6 +34,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
     itemId: string;
     qty: number;
     price: number;
+    currencyId: string;
     expectedDate: string;
   }>>([]);
 
@@ -41,15 +44,17 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
     itemId: string;
     qty: string;
     price: string;
+    currencyId: string;
     expectedDate: string;
   }>>(
-    Array.from({ length: 5 }, () => ({ supplierId: '', itemId: '', qty: '', price: '', expectedDate: '' }))
+    Array.from({ length: 5 }, () => ({ supplierId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' }))
   );
 
   useEffect(() => {
     fetchItems();
     fetchSuppliers();
-  }, [fetchItems, fetchSuppliers]);
+    fetchCurrencies();
+  }, [fetchItems, fetchSuppliers, fetchCurrencies]);
 
   const handleQuickRowChange = (index: number, field: string, value: string) => {
     setQuickRows((prev) => {
@@ -60,14 +65,14 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   };
 
   const handleAddQuickRow = () => {
-    setQuickRows((prev) => [...prev, { supplierId: '', itemId: '', qty: '', price: '', expectedDate: '' }]);
+    setQuickRows((prev) => [...prev, { supplierId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' }]);
   };
 
   const handleAddQuickRows = () => {
     const validRows = quickRows.filter((row) => {
       const qtyInt = parseInt(row.qty);
       const priceFloat = parseFloat(row.price);
-      return row.supplierId && row.itemId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
+      return row.supplierId && row.itemId && row.currencyId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
     });
 
     if (validRows.length === 0) {
@@ -82,6 +87,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
       itemId: r.itemId,
       qty: parseInt(r.qty),
       price: parseFloat(r.price),
+      currencyId: r.currencyId,
       expectedDate: r.expectedDate
     }));
 
@@ -90,7 +96,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
     // 清空有效行
     setQuickRows(prev => prev.map(row => {
       if (validRows.some(vr => vr.itemId === row.itemId && vr.supplierId === row.supplierId && vr.qty === row.qty)) {
-        return { supplierId: '', itemId: '', qty: '', price: '', expectedDate: '' };
+        return { supplierId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' };
       }
       return row;
     }));
@@ -158,7 +164,10 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                       {t('qtyCol') || '数量'}
                     </th>
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 w-24">
-                      {t('purchasePriceCol') || '单价(元)'}
+                      {t('purchasePriceCol') || '单价'}
+                    </th>
+                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 w-20">
+                      币种
                     </th>
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 w-32 pr-2">
                       {t('purchaseDateCol') || '到货日期'}
@@ -185,8 +194,17 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                           value={row.itemId}
                           onChange={(e) => handleQuickRowChange(idx, 'itemId', e.target.value)}
                           options={[
-                            { value: '', label: '--' },
-                            ...items.map(it => ({ value: it.id, label: `${it.name} (${it.code})` }))
+                            { value: '', label: '-- 选择采购物料 --' },
+                            ...[...items]
+                              .sort((a, b) => {
+                                if (a.type !== 'PRODUCT' && b.type === 'PRODUCT') return -1;
+                                if (a.type === 'PRODUCT' && b.type !== 'PRODUCT') return 1;
+                                return 0;
+                              })
+                              .map(it => ({ 
+                                value: it.id, 
+                                label: `${it.type === 'PRODUCT' ? '📦[成品]' : '🧩[原料]'} ${it.name} (${it.code})` 
+                              }))
                           ]}
                         />
                       </td>
@@ -209,6 +227,17 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                           placeholder="0.00"
                           value={row.price}
                           onChange={(e) => handleQuickRowChange(idx, 'price', e.target.value)}
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <UdsSelect
+                          className="h-8 text-xs font-mono !bg-transparent border-transparent hover:border-white/10 px-1"
+                          value={row.currencyId}
+                          onChange={(e) => handleQuickRowChange(idx, 'currencyId', e.target.value)}
+                          options={[
+                            { value: '', label: '--' },
+                            ...currencies.map(c => ({ value: c.id, label: c.symbol }))
+                          ]}
                         />
                       </td>
                       <td className="py-1.5 pl-1 pr-1">
@@ -260,7 +289,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
               ) : (
                 <div className="flex flex-col gap-2">
                   {itemsList.map((itemObj, idx) => {
-                    const it = items.find(i => i.id === itemObj.itemId);
+                    const it = items.find((i: Item) => i.id === itemObj.itemId);
                     const sup = suppliers.find(s => s.id === itemObj.supplierId);
                     return (
                       <div key={idx} className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-solid border-white/5 group">
@@ -269,7 +298,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                           <span className="text-[9px] font-mono text-neutral-500 mt-0.5">{sup?.name || 'Unknown'}</span>
                           <div className="text-[9px] font-mono text-neutral-400 mt-1 flex gap-2">
                             <span>x {itemObj.qty}</span>
-                            <span>@ ¥{itemObj.price}</span>
+                            <span>@ {currencies.find(c => c.id === itemObj.currencyId)?.symbol}{itemObj.price}</span>
                             {itemObj.expectedDate && <span>({itemObj.expectedDate})</span>}
                           </div>
                         </div>

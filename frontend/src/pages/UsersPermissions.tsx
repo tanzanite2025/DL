@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '../components/uds/UdsComponents';
+import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { useI18n } from '../i18n/I18nContext';
 import { User as UserIcon, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { Role, ShowToast } from '../types';
@@ -20,6 +21,7 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
 }) => {
   const { t } = useI18n();
   const { users, roles, isLoading, createUser, updateUserRole, deleteUser, createRole, deleteRole, togglePermission } = useUsersAndRoles();
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 新增用户表单
   const [newUsername, setNewUsername] = useState('');
@@ -409,6 +411,12 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
           </UdsCard>
         </div>
       </div>
+      <AuditLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        resource="users"
+        title={'用户/角色审计'}
+      />
     </div>
   );
 };

@@ -149,7 +149,7 @@ export const UdsInput: React.FC<InputProps> = ({ label, error, className = '', .
         </label>
       )}
       <input
-        className={`h-12 w-full px-4 rounded-2xl border-none bg-[#1c1c1e]/50 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all ${className}`}
+        className={`h-12 w-full px-4 rounded-2xl border-none bg-[#1c1c1e]/50 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all body:theme-light:bg-white body:theme-light:text-[#0f1115] body:theme-light:placeholder-[#9ca3af] body:theme-light:focus:ring-neutral-300 ${className}`}
         {...props}
       />
       {error && (
@@ -180,7 +180,7 @@ export const UdsSelect: React.FC<SelectProps> = ({ label, error, options, classN
       )}
       <div className="relative">
         <select
-          className={`h-12 w-full pl-4 pr-10 rounded-2xl border-none bg-[#1c1c1e]/50 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer appearance-none ${className}`}
+          className={`h-12 w-full pl-4 pr-10 rounded-2xl border-none bg-[#1c1c1e]/50 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer appearance-none body:theme-light:bg-white body:theme-light:text-[#0f1115] body:theme-light:focus:ring-neutral-300 ${className}`}
           {...props}
         >
           {options.map((opt) => (

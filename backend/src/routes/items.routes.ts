@@ -8,6 +8,7 @@ const router = Router();
 router.get('/items', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const items = await prisma.item.findMany({
+      include: { currency: true },
       orderBy: { code: 'asc' },
     });
     return res.json(items);
@@ -17,9 +18,9 @@ router.get('/items', authenticateToken, requirePermission('canAccessGoods'), asy
 });
 
 router.post('/items', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
-  const { name, unit, description } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: '[CRITICAL] 物料名称不可为空。' });
+  const { name, unit, description, cost, currencyId, type } = req.body;
+  if (!name || !currencyId) {
+    return res.status(400).json({ error: '[CRITICAL] 物料名称和货币代码不可为空。' });
   }
   try {
     const items = await prisma.item.findMany({
@@ -41,12 +42,22 @@ router.post('/items', authenticateToken, requirePermission('canAccessGoods'), as
     const paddedNum = String(nextNum).padStart(3, '0');
     const generatedCode = `ITEM-${paddedNum}`;
 
+    let parsedCost = 0;
+    if (typeof cost === 'number') parsedCost = cost;
+    else if (typeof cost === 'string') {
+      const n = parseFloat(cost);
+      if (!Number.isNaN(n)) parsedCost = n;
+    }
+
     const newItem = await prisma.item.create({
       data: {
         code: generatedCode,
         name,
         unit: unit || '件',
-        description
+        description,
+        type: type || 'MATERIAL',
+        cost: parsedCost,
+        currencyId,
       },
     });
     return res.json(newItem);
@@ -57,11 +68,24 @@ router.post('/items', authenticateToken, requirePermission('canAccessGoods'), as
 
 router.put('/items/:id', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { code, name, unit, description } = req.body;
+  const { code, name, unit, description, cost, currencyId } = req.body;
   try {
+    const data: any = { code, name, unit, description };
+    if (currencyId) data.currencyId = currencyId;
+
+    if (cost !== undefined) {
+      let parsedCost = 0;
+      if (typeof cost === 'number') parsedCost = cost;
+      else if (typeof cost === 'string') {
+        const n = parseFloat(cost);
+        if (!Number.isNaN(n)) parsedCost = n;
+      }
+      data.cost = parsedCost;
+    }
+
     const updated = await prisma.item.update({
       where: { id },
-      data: { code, name, unit, description }
+      data,
     });
     return res.json(updated);
   } catch (error) {
@@ -180,304 +204,8 @@ router.delete('/bom/:parentId/:componentId', authenticateToken, requirePermissio
     });
     return res.json({ success: true });
   } catch (error) {
-    console.error('[CRITICAL] 删除 BOM 零件失败：', error);
-    return res.status(500).json({ error: '[CRITICAL] 删除 BOM 零件失败。' });
-  }
-});
-
-// ---------------------- 组装操作 API ----------------------
-router.post('/assembly/check', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
-  const { assembledItemId, quantity, warehouseId } = req.body;
-
-  if (!assembledItemId || !quantity || !warehouseId) {
-    return res.status(400).json({ error: '[CRITICAL] 缺少必要参数。' });
-  }
-
-  try {
-    const bom = await prisma.bomComponent.findMany({
-      where: { parentItemId: assembledItemId },
-      include: {
-        componentItem: true
-      }
-    });
-
-    if (bom.length === 0) {
-      return res.status(400).json({ error: '[CRITICAL] 该成品未配置 BOM 清单，无法组装。' });
-    }
-
-    const stockCheck = [];
-    for (const component of bom) {
-      const requiredQty = component.quantity * parseInt(quantity);
-      
-      const moves = await prisma.goodsMove.findMany({
-        where: {
-          itemId: component.componentItemId,
-          OR: [
-            { fromWarehouseId: warehouseId },
-            { toWarehouseId: warehouseId }
-          ]
-        }
-      });
-
-      let stock = 0;
-      for (const m of moves) {
-        if (m.toWarehouseId === warehouseId) stock += m.qty;
-        if (m.fromWarehouseId === warehouseId) stock -= m.qty;
-      }
-
-      stockCheck.push({
-        componentItem: component.componentItem,
-        requiredQty,
-        currentStock: stock,
-        sufficient: stock >= requiredQty
-      });
-    }
-
-    const allSufficient = stockCheck.every(c => c.sufficient);
-
-    return res.json({
-      canAssemble: allSufficient,
-      stockCheck
-    });
-  } catch (error) {
-    console.error('[CRITICAL] 库存检查失败：', error);
-    return res.status(500).json({ error: '[CRITICAL] 库存检查失败。' });
-  }
-});
-
-router.post('/assembly/assemble', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
-  const { assembledItemId, quantity, warehouseId, remarks } = req.body;
-  const userId = req.user?.id;
-
-  if (!assembledItemId || !quantity || !warehouseId || !userId) {
-    return res.status(400).json({ error: '[CRITICAL] 缺少必要参数。' });
-  }
-
-  try {
-    const bom = await prisma.bomComponent.findMany({
-      where: { parentItemId: assembledItemId },
-      include: {
-        componentItem: true
-      }
-    });
-
-    if (bom.length === 0) {
-      return res.status(400).json({ error: '[CRITICAL] 该成品未配置 BOM 清单，无法组装。' });
-    }
-
-    // 库存预检
-    for (const component of bom) {
-      const requiredQty = component.quantity * parseInt(quantity);
-      const moves = await prisma.goodsMove.findMany({
-        where: {
-          itemId: component.componentItemId,
-          OR: [
-            { fromWarehouseId: warehouseId },
-            { toWarehouseId: warehouseId }
-          ]
-        }
-      });
-
-      let stock = 0;
-      for (const m of moves) {
-        if (m.toWarehouseId === warehouseId) stock += m.qty;
-        if (m.fromWarehouseId === warehouseId) stock -= m.qty;
-      }
-
-      if (stock < requiredQty) {
-        return res.status(400).json({ 
-          error: `[CRITICAL] ${component.componentItem.name} 库存不足。需要 ${requiredQty}，库存 ${stock}。` 
-        });
-      }
-    }
-
-    let totalCost = 0;
-    for (const component of bom) {
-      totalCost += component.componentItem.cost * component.quantity * parseInt(quantity);
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const componentMoves = [];
-      for (const component of bom) {
-        const move = await tx.goodsMove.create({
-          data: {
-            itemId: component.componentItemId,
-            qty: component.quantity * parseInt(quantity),
-            type: 'OUT',
-            fromWarehouseId: warehouseId,
-            userId,
-            remarks: `组装消耗：${remarks || ''}`
-          },
-          include: {
-            item: true
-          }
-        });
-        componentMoves.push(move);
-      }
-
-      const productMove = await tx.goodsMove.create({
-        data: {
-          itemId: assembledItemId,
-          qty: parseInt(quantity),
-          type: 'IN',
-          toWarehouseId: warehouseId,
-          userId,
-          remarks: `组装生产：${remarks || ''}`
-        },
-        include: {
-          item: true
-        }
-      });
-
-      const assemblyLog = await tx.assemblyLog.create({
-        data: {
-          type: 'ASSEMBLE',
-          assembledItemId,
-          quantity: parseInt(quantity),
-          totalCost,
-          warehouseId,
-          userId,
-          remarks
-        },
-        include: {
-          assembledItem: true,
-          warehouse: true,
-          user: { select: { username: true } }
-        }
-      });
-
-      return { assemblyLog, componentMoves, productMove };
-    });
-
-    return res.json(result);
-  } catch (error: any) {
-    console.error('[CRITICAL] 组装操作失败：', error);
-    return res.status(500).json({ error: error.message || '[CRITICAL] 组装操作失败。' });
-  }
-});
-
-router.post('/assembly/disassemble', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
-  const { assembledItemId, quantity, warehouseId, remarks } = req.body;
-  const userId = req.user?.id;
-
-  if (!assembledItemId || !quantity || !warehouseId || !userId) {
-    return res.status(400).json({ error: '[CRITICAL] 缺少必要参数。' });
-  }
-
-  try {
-    const bom = await prisma.bomComponent.findMany({
-      where: { parentItemId: assembledItemId },
-      include: {
-        componentItem: true
-      }
-    });
-
-    if (bom.length === 0) {
-      return res.status(400).json({ error: '[CRITICAL] 该成品未配置 BOM 清单，无法拆解。' });
-    }
-
-    const moves = await prisma.goodsMove.findMany({
-      where: {
-        itemId: assembledItemId,
-        OR: [
-          { fromWarehouseId: warehouseId },
-          { toWarehouseId: warehouseId }
-        ]
-      }
-    });
-
-    let stock = 0;
-    for (const m of moves) {
-      if (m.toWarehouseId === warehouseId) stock += m.qty;
-      if (m.fromWarehouseId === warehouseId) stock -= m.qty;
-    }
-
-    if (stock < parseInt(quantity)) {
-      return res.status(400).json({ 
-        error: `[CRITICAL] 成品库存不足。需要 ${quantity}，库存 ${stock}。` 
-      });
-    }
-
-    let totalCost = 0;
-    for (const component of bom) {
-      totalCost += component.componentItem.cost * component.quantity * parseInt(quantity);
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const productMove = await tx.goodsMove.create({
-        data: {
-          itemId: assembledItemId,
-          qty: parseInt(quantity),
-          type: 'OUT',
-          fromWarehouseId: warehouseId,
-          userId,
-          remarks: `拆解消耗：${remarks || ''}`
-        },
-        include: {
-          item: true
-        }
-      });
-
-      const componentMoves = [];
-      for (const component of bom) {
-        const move = await tx.goodsMove.create({
-          data: {
-            itemId: component.componentItemId,
-            qty: component.quantity * parseInt(quantity),
-            type: 'IN',
-            toWarehouseId: warehouseId,
-            userId,
-            remarks: `拆解还原：${remarks || ''}`
-          },
-          include: {
-            item: true
-          }
-        });
-        componentMoves.push(move);
-      }
-
-      const assemblyLog = await tx.assemblyLog.create({
-        data: {
-          type: 'DISASSEMBLE',
-          assembledItemId,
-          quantity: parseInt(quantity),
-          totalCost: -totalCost,
-          warehouseId,
-          userId,
-          remarks
-        },
-        include: {
-          assembledItem: true,
-          warehouse: true,
-          user: { select: { username: true } }
-        }
-      });
-
-      return { assemblyLog, componentMoves, productMove };
-    });
-
-    return res.json(result);
-  } catch (error: any) {
-    console.error('[CRITICAL] 拆解操作失败：', error);
-    return res.status(500).json({ error: error.message || '[CRITICAL] 拆解操作失败。' });
-  }
-});
-
-router.get('/assembly/logs', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const logs = await prisma.assemblyLog.findMany({
-      include: {
-        assembledItem: true,
-        warehouse: true,
-        user: { select: { username: true } }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100
-    });
-    return res.json(logs);
-  } catch (error) {
-    console.error('[CRITICAL] 获取组装历史失败：', error);
-    return res.status(500).json({ error: '[CRITICAL] 获取组装历史失败。' });
+    console.error('[CRITICAL] 删除 BOM 物料失败：', error);
+    return res.status(500).json({ error: '[CRITICAL] 删除 BOM 物料失败。' });
   }
 });
 

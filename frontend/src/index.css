@@ -8,15 +8,183 @@
   --color-border-industrial: #2c2c2e;
   --color-bg-dark: #09090b;
   --color-card-bg: #121214;
+  --color-bg-light: #f7f7f8;
+  --color-card-light: #ffffff;
+  --color-text-dark: #0f1115;
+  --color-text-muted-dark: #6b6f76;
   
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 @layer base {
-  body {
+  body,
+  [data-theme='dark'] body {
     background-color: #09090b;
     color: #f3f4f6;
     font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  body.theme-light,
+  [data-theme='light'] body {
+    background-color: var(--color-bg-light);
+    color: var(--color-text-dark);
+  }
+
+  body.theme-light .bg-\[\#121214\] {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: var(--color-text-dark);
+  }
+
+  body.theme-light .bg-black\/40,
+  body.theme-light .bg-white\/2,
+  body.theme-light .bg-white\/5 {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  body.theme-light .text-neutral-100,
+  body.theme-light .text-neutral-200,
+  body.theme-light .text-white {
+    color: var(--color-text-dark) !important;
+  }
+
+  body.theme-light .text-neutral-400 {
+    color: var(--color-text-muted-dark) !important;
+  }
+
+  body.theme-light .border-white\/5,
+  body.theme-light .border-white\/10,
+  body.theme-light .border-white\/20 {
+    border-color: rgba(0, 0, 0, 0.08) !important;
+  }
+
+  body.theme-light .bg-white {
+    background-color: var(--color-card-light) !important;
+    color: var(--color-text-dark) !important;
+  }
+
+  body.theme-light select,
+  body.theme-light option {
+    background-color: var(--color-card-light) !important;
+    color: var(--color-text-dark) !important;
+  }
+
+  /* 通用表单控件：浅色模式下转为浅灰底 + 深色文字/边框 */
+  body.theme-light input,
+  body.theme-light select,
+  body.theme-light textarea {
+    background-color: #f5f5f5 !important;
+    color: #0f1115 !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+  }
+
+  body.theme-light input::placeholder,
+  body.theme-light textarea::placeholder,
+  body.theme-light select::placeholder {
+    color: #9ca3af !important;
+  }
+
+  /* 强制覆盖深色背景类（如 bg-[#1c1c1e]/50 等）在浅色模式下变浅 */
+  body.theme-light .bg-\[\#1c1c1e\]\/50,
+  body.theme-light .bg-\[\#1c1c1e\]\/30,
+  body.theme-light .bg-\[\#121214\]\/50,
+  body.theme-light .bg-\[\#121214\]\/30 {
+    background-color: #f5f5f5 !important;
+    color: #0f1115 !important;
+  }
+
+  /* 浅色模式下，模态框主体背景变白 */
+  body.theme-light .bg-\[\#121214\] {
+    background-color: #ffffff !important;
+    color: #0f1115 !important;
+  }
+
+  body.theme-light .bg-\[\#09090b\]\/85 {
+    background-color: #f7f7f8 !important;
+    color: #0f1115 !important;
+  }
+
+  /* 浅色模式下，Tab 栏背景变浅 */
+  body.theme-light .bg-black\/20,
+  body.theme-light .bg-black\/40 {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* 浅色模式下，覆盖更多深色背景类 */
+  body.theme-light .bg-\[\#09090b\],
+  body.theme-light .bg-\[\#121214\]\/80,
+  body.theme-light .bg-\[\#121214\]\/60,
+  body.theme-light .bg-\[\#121214\]\/40,
+  body.theme-light .bg-\[\#1c1c1e\],
+  body.theme-light .bg-\[\#1c1c1e\]\/40,
+  body.theme-light .bg-black,
+  body.theme-light .bg-black\/90,
+  body.theme-light .bg-black\/70 {
+    background-color: #f7f7f8 !important;
+    color: #0f1115 !important;
+  }
+
+  /* 浅色模式下，UdsCard 等卡片背景变白 */
+  body.theme-light .bg-\[\#121214\] {
+    background-color: #ffffff !important;
+    color: #0f1115 !important;
+  }
+
+  /* 浅色模式下，卡片头部背景变浅 */
+  body.theme-light .bg-\[\#1c1c1e\]\/20 {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+    color: #0f1115 !important;
+  }
+
+  /* 浅色模式下，边框颜色变浅 */
+  body.theme-light .border-white\/5,
+  body.theme-light .border-white\/10,
+  body.theme-light .border-white\/20,
+  body.theme-light .border-solid {
+    border-color: rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* 浅色模式下，文字颜色调整 */
+  body.theme-light .text-white,
+  body.theme-light .text-neutral-200 {
+    color: #0f1115 !important;
+  }
+
+  body.theme-light .text-neutral-400 {
+    color: #6b6f76 !important;
+  }
+
+  body.theme-light .text-neutral-500 {
+    color: #9ca3af !important;
+  }
+
+  /* 浅色模式下，隐藏或淡化渐变叠加层 */
+  body.theme-light .bg-gradient-to-br {
+    opacity: 0.3 !important;
+  }
+
+  /* 浅色模式下，hover 效果变浅 */
+  body.theme-light .hover\:bg-white\/2:hover,
+  body.theme-light .hover\:bg-white\/5:hover {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* 浅色模式下，表格行 hover 变浅 */
+  body.theme-light .hover\:bg-white\/2:hover {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+  }
+
+  /* 浅色模式下，模态背景用浅灰半透明，不要黑底 */
+  body.theme-light .bg-black\/80,
+  body.theme-light .bg-black\/60,
+  body.theme-light .bg-black\/50 {
+    background-color: rgba(0, 0, 0, 0.12) !important;
+  }
+
+  body.theme-light .shadow,
+  body.theme-light .card,
+  body.theme-light .uds-card {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.06);
   }
 
   input, select, textarea, button, option {

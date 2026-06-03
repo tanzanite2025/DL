@@ -3,6 +3,7 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import { prisma } from './lib/prisma.js';
 import { PORT } from './config/env.js';
+import { auditMiddleware } from './audit/auditLogger.js';
 
 // 路由模块
 import authRoutes from './routes/auth.routes.js';
@@ -14,7 +15,9 @@ import goodsMovesRoutes from './routes/goodsMoves.routes.js';
 import financeRoutes from './routes/finance.routes.js';
 import purchaseRoutes from './routes/purchase.routes.js';
 import salesRoutes from './routes/sales.routes.js';
+import unitsRoutes from './routes/units.routes.js';
 import devRoutes from './routes/dev.routes.js';
+import auditRoutes from './routes/audit.routes.js';
 
 const app = express();
 
@@ -24,6 +27,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(auditMiddleware);
 
 // ==================== 数据库自动 Seed ====================
 async function seedDatabase() {
@@ -33,7 +37,7 @@ async function seedDatabase() {
       console.log('检测到数据库为空，开始初始化种子数据...');
 
       // 1. 创建角色
-      const adminRole = await prisma.role.create({
+      const adminRole = await (prisma as any).role.create({
         data: {
           name: '系统管理员',
           protected: true,
@@ -45,6 +49,7 @@ async function seedDatabase() {
           canAccessSales: true,
           canAccessPurchase: true,
           canAccessAssembly: true,
+          canAccessAudit: true,
         },
       });
 
@@ -108,11 +113,13 @@ app.use('/api/users', usersRoutes);
 app.use('/api/roles', rolesRoutes);
 app.use('/api/warehouses', warehousesRoutes);
 app.use('/api', itemsRoutes);          // /api/items, /api/bom, /api/assembly
+app.use('/api/units', unitsRoutes);
 app.use('/api/goods-moves', goodsMovesRoutes);
 app.use('/api', financeRoutes);         // /api/finance, /api/payment-accounts, /api/currencies
 app.use('/api', purchaseRoutes);        // /api/suppliers, /api/purchase-orders
 app.use('/api', salesRoutes);           // /api/customers, /api/sales-orders
 app.use('/api/dev', devRoutes);
+app.use('/api/audit', auditRoutes);
 
 // ==================== 启动服务器 ====================
 app.listen(PORT, async () => {

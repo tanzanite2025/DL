@@ -1,27 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { UdsCard, UdsButton, UdsInput } from '../components/uds/UdsComponents';
+import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { useI18n } from '../i18n/I18nContext';
-import { Box, Package, Plus, Trash2, Play, RotateCcw } from 'lucide-react';
+import { Box, Play, RotateCcw } from 'lucide-react';
 import { ShowToast } from '../types';
-import { useItems } from '../hooks/useItems';
 import { useWarehouses } from '../hooks/useWarehouses';
-import { bomApi, assemblyApi } from '../services/api';
+import { useCurrencies } from '../hooks/useCurrencies';
+import { assemblyApi } from '../services/api';
 
 interface AssemblyManagementProps {
   token: string;
   showToast: ShowToast;
-}
-
-interface BomComponent {
-  componentItemId: string;
-  componentItem: {
-    id: string;
-    code: string;
-    name: string;
-    unit: string;
-  };
-  quantity: number;
-  remarks?: string;
 }
 
 interface AssemblyLog {
@@ -37,7 +26,11 @@ interface AssemblyLog {
     name: string;
   };
   user: {
+  user: {
     username: string;
+  };
+  currency?: {
+    symbol: string;
   };
   remarks?: string;
   createdAt: string;
@@ -47,23 +40,17 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
   const { t } = useI18n();
   const { items } = useItems();
   const { warehouses } = useWarehouses();
+  const { currencies } = useCurrencies();
 
   // 当前选中的 Tab
-  const [activeTab, setActiveTab] = useState<'bom' | 'assembly' | 'history'>('bom');
-
-  // BOM 配置相关状态
-  const [bomProducts, setBomProducts] = useState<any[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [bomComponents, setBomComponents] = useState<BomComponent[]>([]);
-  const [newComponentId, setNewComponentId] = useState('');
-  const [newComponentQty, setNewComponentQty] = useState('1');
-  const [isLoadingBom, setIsLoadingBom] = useState(false);
-  const [isSavingBom, setIsSavingBom] = useState(false);
+  const [activeTab, setActiveTab] = useState<'assembly' | 'history'>('assembly');
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 组装操作相关状态
   const [assemblyItemId, setAssemblyItemId] = useState('');
   const [assemblyQty, setAssemblyQty] = useState('1');
   const [assemblyWarehouseId, setAssemblyWarehouseId] = useState('');
+  const [assemblyCurrencyId, setAssemblyCurrencyId] = useState('');
   const [assemblyRemarks, setAssemblyRemarks] = useState('');
   const [isAssembling, setIsAssembling] = useState(false);
   const [stockCheckResult, setStockCheckResult] = useState<any>(null);
@@ -71,99 +58,6 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
   // 组装历史相关状态
   const [assemblyLogs, setAssemblyLogs] = useState<AssemblyLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-
-  // 获取已配置 BOM 的产品列表
-  const loadBomProducts = async () => {
-    try {
-      const products = await bomApi.list();
-      setBomProducts(products);
-    } catch (error: any) {
-      showToast(error.message || t('errNetwork'), 'error');
-    }
-  };
-
-  // 获取指定产品的 BOM 配置
-  const loadBomComponents = async (productId: string) => {
-    if (!productId) return;
-    setIsLoadingBom(true);
-    try {
-      const components = await bomApi.getByItemId(productId);
-      setBomComponents(components);
-    } catch (error: any) {
-      showToast(error.message || t('errNetwork'), 'error');
-    } finally {
-      setIsLoadingBom(false);
-    }
-  };
-
-  // 保存 BOM 配置
-  const handleSaveBom = async () => {
-    if (!selectedProductId) {
-      showToast(t('selectProduct'), 'error');
-      return;
-    }
-
-    setIsSavingBom(true);
-    try {
-      const componentsData = bomComponents.map(c => ({
-        componentItemId: c.componentItemId,
-        quantity: c.quantity,
-        remarks: c.remarks || ''
-      }));
-
-      await bomApi.save({
-        parentItemId: selectedProductId,
-        components: componentsData
-      });
-
-      showToast(t('bomSaveSuccess'), 'success');
-      loadBomProducts();
-    } catch (error: any) {
-      showToast(error.message || t('errNetwork'), 'error');
-    } finally {
-      setIsSavingBom(false);
-    }
-  };
-
-  // 添加零件到 BOM
-  const handleAddComponent = () => {
-    if (!newComponentId) {
-      showToast(t('selectItem'), 'error');
-      return;
-    }
-
-    const qty = parseInt(newComponentQty);
-    if (isNaN(qty) || qty <= 0) {
-      showToast(t('errMovementFormInvalid'), 'error');
-      return;
-    }
-
-    // 检查是否已存在
-    if (bomComponents.some(c => c.componentItemId === newComponentId)) {
-      showToast(t('errItemFormRequired'), 'error');
-      return;
-    }
-
-    const item = items.find(i => i.id === newComponentId);
-    if (!item) return;
-
-    setBomComponents([
-      ...bomComponents,
-      {
-        componentItemId: item.id,
-        componentItem: item,
-        quantity: qty
-      }
-    ]);
-
-    setNewComponentId('');
-    setNewComponentQty('1');
-  };
-
-  // 删除 BOM 中的零件
-  const handleRemoveComponent = (componentId: string) => {
-    setBomComponents(bomComponents.filter(c => c.componentItemId !== componentId));
-  };
 
   // 检查库存
   const handleCheckStock = async () => {
@@ -192,7 +86,7 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
 
   // 执行组装
   const handleAssemble = async () => {
-    if (!assemblyItemId || !assemblyWarehouseId) {
+    if (!assemblyItemId || !assemblyWarehouseId || !assemblyCurrencyId) {
       showToast(t('errItemFormRequired'), 'error');
       return;
     }
@@ -209,6 +103,7 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
         assembledItemId: assemblyItemId,
         quantity: qty,
         warehouseId: assemblyWarehouseId,
+        currencyId: assemblyCurrencyId,
         remarks: assemblyRemarks
       });
 
@@ -225,7 +120,7 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
 
   // 执行拆解
   const handleDisassemble = async () => {
-    if (!assemblyItemId || !assemblyWarehouseId) {
+    if (!assemblyItemId || !assemblyWarehouseId || !assemblyCurrencyId) {
       showToast(t('errItemFormRequired'), 'error');
       return;
     }
@@ -242,6 +137,7 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
         assembledItemId: assemblyItemId,
         quantity: qty,
         warehouseId: assemblyWarehouseId,
+        currencyId: assemblyCurrencyId,
         remarks: assemblyRemarks
       });
 
@@ -271,21 +167,10 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
 
   // 初始化数据
   useEffect(() => {
-    if (activeTab === 'bom') {
-      loadBomProducts();
-    } else if (activeTab === 'history') {
+    if (activeTab === 'history') {
       loadAssemblyLogs();
     }
   }, [activeTab]);
-
-  // 当选择的产品变化时，加载 BOM
-  useEffect(() => {
-    if (selectedProductId) {
-      loadBomComponents(selectedProductId);
-    } else {
-      setBomComponents([]);
-    }
-  }, [selectedProductId]);
 
   // 设置默认仓库
   useEffect(() => {
@@ -296,19 +181,8 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-700">
-      {/* Tab 切换 */}
+      {/* Tab 切换（仅组装 & 历史） */}
       <div className="flex items-center gap-2 bg-black/40 p-1 rounded-full w-fit">
-        <button
-          onClick={() => setActiveTab('bom')}
-          className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-            activeTab === 'bom'
-              ? 'bg-white text-black'
-              : 'text-neutral-400 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <Package size={12} className="inline mr-1.5" />
-          {t('bomConfig')}
-        </button>
         <button
           onClick={() => setActiveTab('assembly')}
           className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
@@ -333,180 +207,12 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
         </button>
       </div>
 
-      {/* BOM 配置 Tab */}
-      {activeTab === 'bom' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* 左侧：配置表单 */}
-          <div className="lg:col-span-5">
-            <UdsCard title={t('configureBom')}>
-              <div className="flex flex-col gap-4">
-                {/* 选择成品 */}
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
-                    {t('selectProduct')}
-                  </label>
-                  <select
-                    className="w-full h-11 px-4 rounded-2xl border border-white/5 bg-[#1c1c1e]/50 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer"
-                    value={selectedProductId}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
-                  >
-                    <option value="">{t('selectProduct')}</option>
-                    {items.map((item) => (
-                      <option key={item.id} value={item.id} className="bg-[#121214] text-white">
-                        {item.code} - {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+      <div className="flex justify-end">
+        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
+          审计日志
+        </UdsButton>
+      </div>
 
-                {selectedProductId && (
-                  <>
-                    {/* 添加零件 */}
-                    <div className="border-t border-white/5 pt-4">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
-                        {t('addComponent')}
-                      </label>
-                      <div className="flex gap-2">
-                        <select
-                          className="flex-1 h-11 px-4 rounded-2xl border border-white/5 bg-[#1c1c1e]/50 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer"
-                          value={newComponentId}
-                          onChange={(e) => setNewComponentId(e.target.value)}
-                        >
-                          <option value="">{t('componentItem')}</option>
-                          {items
-                            .filter(i => !bomComponents.some(c => c.componentItemId === i.id))
-                            .map((item) => (
-                              <option key={item.id} value={item.id} className="bg-[#121214] text-white">
-                                {item.code} - {item.name}
-                              </option>
-                            ))}
-                        </select>
-                        <UdsInput
-                          type="number"
-                          min="1"
-                          value={newComponentQty}
-                          onChange={(e) => setNewComponentQty(e.target.value)}
-                          placeholder={t('requiredQty')}
-                          className="w-24"
-                        />
-                        <UdsButton onClick={handleAddComponent} variant="ghost">
-                          <Plus size={14} />
-                        </UdsButton>
-                      </div>
-                    </div>
-
-                    {/* 零件列表 */}
-                    {isLoadingBom ? (
-                      <div className="text-center py-4 text-[10px] text-neutral-500">
-                        {t('loading')}
-                      </div>
-                    ) : bomComponents.length > 0 ? (
-                      <div className="border-t border-white/5 pt-4 space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block">
-                          {t('bomComponents')}
-                        </label>
-                        {bomComponents.map((comp) => (
-                          <div
-                            key={comp.componentItemId}
-                            className="flex items-center justify-between bg-[#1c1c1e]/30 rounded-2xl px-4 py-3"
-                          >
-                            <div className="flex-1">
-                              <div className="text-sm font-semibold text-white">
-                                {comp.componentItem.name}
-                              </div>
-                              <div className="text-[10px] text-neutral-500 font-mono">
-                                {comp.componentItem.code}
-                              </div>
-                            </div>
-                            <div className="text-sm font-bold text-neutral-300 mr-3">
-                              × {comp.quantity}
-                            </div>
-                            <UdsButton
-                              variant="ghost"
-                              className="h-7 w-7 !p-0 rounded-full text-rose-500 hover:text-rose-400"
-                              onClick={() => handleRemoveComponent(comp.componentItemId)}
-                            >
-                              <Trash2 size={11} />
-                            </UdsButton>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-[10px] text-neutral-600">
-                        {t('noBomComponents')}
-                      </div>
-                    )}
-
-                    {/* 保存按钮 */}
-                    <div className="border-t border-white/5 pt-4">
-                      <UdsButton
-                        variant="primary"
-                        className="w-full"
-                        onClick={handleSaveBom}
-                        disabled={isSavingBom || bomComponents.length === 0}
-                      >
-                        {isSavingBom ? t('loading') : t('save')}
-                      </UdsButton>
-                    </div>
-                  </>
-                )}
-              </div>
-            </UdsCard>
-          </div>
-
-          {/* 右侧：已配置 BOM 的产品列表 */}
-          <div className="lg:col-span-7">
-            <UdsCard title={t('registeredProductLedger')}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-solid border-white/10">
-                      <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
-                        {t('itemCodeCol')}
-                      </th>
-                      <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
-                        {t('itemNameCol')}
-                      </th>
-                      <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
-                        {t('bomComponents')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bomProducts.map((product) => (
-                      <tr
-                        key={product.id}
-                        className="border-b border-solid border-white/5 hover:bg-white/2 transition-all text-xs cursor-pointer"
-                        onClick={() => setSelectedProductId(product.id)}
-                      >
-                        <td className="py-3.5 pl-2 font-mono font-bold text-neutral-200">
-                          {product.code}
-                        </td>
-                        <td className="py-3.5">
-                          <div className="flex items-center gap-1.5 font-semibold text-neutral-200">
-                            <Package size={13} className="text-neutral-400" />
-                            <span>{product.name}</span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 text-center font-bold text-neutral-400">
-                          {product.bomComponents?.length || 0}
-                        </td>
-                      </tr>
-                    ))}
-                    {bomProducts.length === 0 && (
-                      <tr>
-                        <td colSpan={3} className="text-center py-6 text-[10px] font-mono text-neutral-600">
-                          {t('noProductsRegistered')}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </UdsCard>
-          </div>
-        </div>
-      )}
 
       {/* 组装操作 Tab */}
       {activeTab === 'assembly' && (
@@ -573,6 +279,25 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
                     }}
                     placeholder="1"
                   />
+                </div>
+
+                {/* 币种 */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
+                    币种
+                  </label>
+                  <select
+                    className="w-full h-11 px-4 rounded-2xl border border-white/5 bg-[#1c1c1e]/50 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer"
+                    value={assemblyCurrencyId}
+                    onChange={(e) => setAssemblyCurrencyId(e.target.value)}
+                  >
+                    <option value="">选择币种</option>
+                    {currencies.map((cur) => (
+                      <option key={cur.id} value={cur.id} className="bg-[#121214] text-white">
+                        {cur.name} ({cur.symbol})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* 备注 */}
@@ -724,7 +449,10 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
                       {t('warehouseName')}
                     </th>
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
+                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right">
+                      成本
+                    </th>
+                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
                       {t('op')}
                     </th>
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
@@ -759,7 +487,10 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
                       <td className="py-3.5 text-neutral-300">
                         {log.warehouse.name}
                       </td>
-                      <td className="py-3.5 text-neutral-400 font-mono text-[10px]">
+                      <td className="py-3.5 text-right font-mono text-sm font-bold text-neutral-200">
+                        {log.currency?.symbol}{log.totalCost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3.5 text-neutral-400 font-mono text-[10px] pl-2">
                         {log.user.username}
                       </td>
                       <td className="py-3.5 text-neutral-500 text-[10px]">
@@ -777,6 +508,12 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
           )}
         </UdsCard>
       )}
+      <AuditLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        resource="assembly"
+        title={'装配审计'}
+      />
     </div>
   );
 };

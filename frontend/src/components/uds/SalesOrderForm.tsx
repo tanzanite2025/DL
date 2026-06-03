@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { UdsCard, UdsButton, UdsInput, UdsSelect } from './UdsComponents';
 import { useI18n } from '../../i18n/I18nContext';
-import { useItems } from '../../hooks/useItems';
 import { useCustomers } from '../../hooks/useCustomers';
+import { useCurrencies } from '../../hooks/useCurrencies';
+import { useItems } from '../../hooks/useItems';
 import { ShowToast } from '../../types';
 
 interface SalesOrderFormProps {
@@ -23,6 +24,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
   const { t } = useI18n();
   const { items, fetchItems } = useItems();
   const { customers, fetchCustomers } = useCustomers();
+  const { currencies, fetchCurrencies } = useCurrencies();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -32,6 +34,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
     itemId: string;
     qty: number;
     price: number;
+    currencyId: string;
     status: 'DRAFT' | 'ACTIVE' | 'SHIPPED';
   }>>([]);
 
@@ -41,15 +44,17 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
     itemId: string;
     qty: string;
     price: string;
+    currencyId: string;
     status: 'DRAFT' | 'ACTIVE' | 'SHIPPED';
   }>>(
-    Array.from({ length: 5 }, () => ({ customerId: '', itemId: '', qty: '', price: '', status: 'DRAFT' }))
+    Array.from({ length: 5 }, () => ({ customerId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' }))
   );
 
   useEffect(() => {
     fetchItems();
     fetchCustomers();
-  }, [fetchItems, fetchCustomers]);
+    fetchCurrencies();
+  }, [fetchItems, fetchCustomers, fetchCurrencies]);
 
   const handleQuickRowChange = (index: number, field: string, value: string) => {
     setQuickRows((prev) => {
@@ -60,14 +65,14 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
   };
 
   const handleAddQuickRow = () => {
-    setQuickRows((prev) => [...prev, { customerId: '', itemId: '', qty: '', price: '', status: 'DRAFT' }]);
+    setQuickRows((prev) => [...prev, { customerId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' }]);
   };
 
   const handleAddQuickRows = () => {
     const validRows = quickRows.filter((row) => {
       const qtyInt = parseInt(row.qty);
       const priceFloat = parseFloat(row.price);
-      return row.customerId && row.itemId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
+      return row.customerId && row.itemId && row.currencyId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
     });
 
     if (validRows.length === 0) {
@@ -82,6 +87,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
       itemId: r.itemId,
       qty: parseInt(r.qty),
       price: parseFloat(r.price),
+      currencyId: r.currencyId,
       status: r.status
     }));
 
@@ -90,7 +96,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
     // 清空有效行
     setQuickRows(prev => prev.map(row => {
       if (validRows.some(vr => vr.itemId === row.itemId && vr.customerId === row.customerId && vr.qty === row.qty)) {
-        return { customerId: '', itemId: '', qty: '', price: '', status: 'DRAFT' };
+        return { customerId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' };
       }
       return row;
     }));
@@ -159,6 +165,9 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 w-24">
                       {t('orderPriceCol') || '销售单价'}
                     </th>
+                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 w-20">
+                      币种
+                    </th>
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 w-24 pr-2">
                       {t('orderStatusCol') || '状态'}
                     </th>
@@ -184,8 +193,17 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
                           value={row.itemId}
                           onChange={(e) => handleQuickRowChange(idx, 'itemId', e.target.value)}
                           options={[
-                            { value: '', label: '--' },
-                            ...items.map(it => ({ value: it.id, label: `${it.name} (${it.code})` }))
+                            { value: '', label: '-- 选择售卖物料 --' },
+                            ...[...items]
+                              .sort((a, b) => {
+                                if (a.type === 'PRODUCT' && b.type !== 'PRODUCT') return -1;
+                                if (a.type !== 'PRODUCT' && b.type === 'PRODUCT') return 1;
+                                return 0;
+                              })
+                              .map(it => ({ 
+                                value: it.id, 
+                                label: `${it.type === 'PRODUCT' ? '📦[成品]' : '🧩[原料]'} ${it.name} (${it.code})` 
+                              }))
                           ]}
                         />
                       </td>
@@ -208,6 +226,17 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
                           placeholder="0.00"
                           value={row.price}
                           onChange={(e) => handleQuickRowChange(idx, 'price', e.target.value)}
+                        />
+                      </td>
+                      <td className="py-1.5 px-1">
+                        <UdsSelect
+                          className="h-8 text-xs font-mono !bg-transparent border-transparent hover:border-white/10 px-1"
+                          value={row.currencyId}
+                          onChange={(e) => handleQuickRowChange(idx, 'currencyId', e.target.value)}
+                          options={[
+                            { value: '', label: '--' },
+                            ...currencies.map(c => ({ value: c.id, label: c.symbol }))
+                          ]}
                         />
                       </td>
                       <td className="py-1.5 pl-1 pr-1">
@@ -272,7 +301,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
                           <span className="text-[9px] font-mono text-neutral-500 mt-0.5">{cust?.name || 'Unknown'}</span>
                           <div className="text-[9px] font-mono text-neutral-400 mt-1 flex gap-2">
                             <span>x {itemObj.qty}</span>
-                            <span>@ ¥{itemObj.price}</span>
+                            <span>@ {currencies.find(c => c.id === itemObj.currencyId)?.symbol}{itemObj.price}</span>
                             <span className="text-neutral-500">[{itemObj.status}]</span>
                           </div>
                         </div>

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '../components/uds/UdsComponents';
+import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { SalesOrderForm } from '../components/uds/SalesOrderForm';
 import { useI18n } from '../i18n/I18nContext';
 import { Trash2, Edit3, CircleDollarSign } from 'lucide-react';
 import { Customer, SalesOrder, ShowToast } from '../types';
-import { useCustomers } from '../hooks/useCustomers';
 import { useItems } from '../hooks/useItems';
 import { useSalesOrders } from '../hooks/useSalesOrders';
+import { useCustomers } from '../hooks/useCustomers';
+import { useCurrencies } from '../hooks/useCurrencies';
 
 interface SalesManagementProps {
   token: string;
@@ -19,7 +21,9 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
   const { customers, isLoading: custLoading, createCustomer, updateCustomer, deleteCustomer } = useCustomers();
   const { items, isLoading: itemsLoading } = useItems();
   const { orders, isLoading: ordersLoading, createOrder, updateOrder, deleteOrder, createBillFromOrder } = useSalesOrders();
+  const { currencies } = useCurrencies();
   const isLoading = custLoading || itemsLoading || ordersLoading;
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 客户表单状态
   const [customerName, setCustomerName] = useState('');
@@ -33,6 +37,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
   const [orderItemId, setOrderItemId] = useState('');
   const [orderQty, setOrderQty] = useState('');
   const [orderPrice, setOrderPrice] = useState('');
+  const [orderCurrencyId, setOrderCurrencyId] = useState('');
   const [orderStatus, setOrderStatus] = useState<'DRAFT' | 'ACTIVE' | 'SHIPPED'>('DRAFT');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -121,6 +126,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
           itemId: item.itemId,
           qty: item.qty,
           price: item.price,
+          currencyId: item.currencyId,
           status: item.status
         });
       }
@@ -133,7 +139,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
 
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderCustomerId || !orderItemId || !orderQty || !orderPrice) {
+    if (!orderCustomerId || !orderItemId || !orderQty || !orderPrice || !orderCurrencyId) {
       showToast(t('errOrderFieldsRequired'), 'error');
       return;
     }
@@ -155,6 +161,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
       itemId: orderItemId,
       qty: qtyVal,
       price: priceVal,
+      currencyId: orderCurrencyId,
       status: orderStatus
     };
 
@@ -172,6 +179,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
 
       setOrderQty('');
       setOrderPrice('');
+      setOrderCurrencyId('');
       setOrderStatus('DRAFT');
       setEditingOrderId(null);
     } catch (error: any) {
@@ -190,6 +198,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
     setOrderItemId(o.itemId);
     setOrderQty(o.qty.toString());
     setOrderPrice(o.price.toString());
+    setOrderCurrencyId(o.currencyId || '');
     setOrderStatus(o.status as 'DRAFT' | 'ACTIVE' | 'SHIPPED');
   };
 
@@ -198,6 +207,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
     setEditingOrderId(null);
     setOrderQty('');
     setOrderPrice('');
+    setOrderCurrencyId('');
     setOrderStatus('DRAFT');
     if (customers.length > 0) setOrderCustomerId(customers[0].id);
     if (items.length > 0) setOrderItemId(items[0].id);
@@ -241,6 +251,8 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
     return q * p;
   }, [orderQty, orderPrice]);
 
+  const selectedCurrencySymbol = currencies.find(c => c.id === orderCurrencyId)?.symbol || '¥';
+
   if (isLoading && customers.length === 0 && orders.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -259,6 +271,12 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
         title={t('salesHeader')}
         description={t('salesDesc')}
       />
+
+      <div className="flex justify-end">
+        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
+          审计日志
+        </UdsButton>
+      </div>
 
       {/* 模块子 Tab 切换（无边框暗色药丸胶囊） */}
       <div className="flex bg-black/40 p-1 rounded-full w-fit gap-1 self-start select-none">
@@ -458,6 +476,16 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
                       onChange={(e) => setOrderPrice(e.target.value)}
                       required
                     />
+                    <UdsSelect
+                      label="币种"
+                      options={[
+                        { value: '', label: '选择币种' },
+                        ...currencies.map(c => ({ value: c.id, label: `${c.name} (${c.symbol})` }))
+                      ]}
+                      value={orderCurrencyId}
+                      onChange={(e) => setOrderCurrencyId(e.target.value)}
+                      required
+                    />
                   </div>
 
                   <UdsSelect
@@ -478,7 +506,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
                       {t('estimatedTotal')}
                     </span>
                     <span className="text-xl font-black italic tracking-tighter text-white font-mono">
-                      ¥ {calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {selectedCurrencySymbol} {calculatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
 
@@ -587,10 +615,10 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
                                 </div>
                               </td>
                               <td className="py-3.5 text-center text-xs text-neutral-300 font-mono">
-                                {o.qty} {o.item?.unit} x ¥{o.price.toFixed(2)}
+                                {o.qty} {o.item?.unit} x {o.currency?.symbol}{o.price.toFixed(2)}
                               </td>
                               <td className="py-3.5 text-right font-bold text-sm text-neutral-200 font-mono">
-                                ¥{o.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {o.currency?.symbol}{o.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               </td>
                               <td className="py-3.5 text-center">
                                 <UdsBadge status={badgeStatus}>{statusText}</UdsBadge>
@@ -661,7 +689,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
       {/* 新建销售订单 Modal 弹窗 */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="relative w-full w-[85vw] max-w-7xl h-[80vh] flex flex-col animate-uds-fade">
+          <div className="relative w-[90vw] max-w-[1600px] h-[80vh] flex flex-col animate-uds-fade">
             <SalesOrderForm
               className="h-full flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
               showToast={showToast}
@@ -678,6 +706,13 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
           </div>
         </div>
       )}
+
+      <AuditLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        resource="sales-orders"
+        title={'销售订单审计'}
+      />
     </div>
   );
 };

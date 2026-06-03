@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsBadge } from '../components/uds/UdsComponents';
+import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
 import { useI18n } from '../i18n/I18nContext';
 import { MoveRight, RefreshCw } from 'lucide-react';
@@ -17,13 +18,19 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
   const { t } = useI18n();
   const { items, isLoading: itemsLoading, fetchItems } = useItems();
   const { warehouses, isLoading: whLoading, fetchWarehouses } = useWarehouses();
-  const { moves, isLoading: movesLoading, fetchMoves, createMove, deleteMove } = useGoodsMoves();
+  const { moves, isLoading: movesLoading, fetchMoves, deleteMove } = useGoodsMoves();
   const [stockMatrix, setStockMatrix] = useState<StockMatrixRow[]>([]);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
   const isLoading = itemsLoading || whLoading || movesLoading;
 
   // 计算每个物料在各个仓库中的现有库存
   const calculateStockMatrix = (itemsList: Item[], whList: Warehouse[], movesList: GoodsMove[]) => {
+    // 如果还没有配置任何仓库，则不计算矩阵，避免只看到一堆 0 却不知道属于哪个仓库
+    if (!whList.length) {
+      setStockMatrix([]);
+      return;
+    }
     const matrixMap: Record<string, StockMatrixRow> = {};
 
     itemsList.forEach((item) => {
@@ -101,67 +108,79 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
         }
       />
 
+      <div className="flex justify-end">
+        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
+          审计日志
+        </UdsButton>
+      </div>
+
       {/* 库存矩阵总览 */}
       <UdsCard title={t('inventoryMatrix')}>
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-solid border-white/10">
-                <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
-                  {t('itemCodeCol2')}
-                </th>
-                <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
-                  {t('itemNameCol2')}
-                </th>
-                {warehouses.map((wh) => (
-                  <th key={wh.id} className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
-                    {wh.name}
+        {warehouses.length === 0 ? (
+          <div className="text-center py-6 text-[10px] font-mono text-neutral-600">
+            {t('noInventoryData')}
+          </div>
+        ) : (
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-solid border-white/10">
+                  <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
+                    {t('itemCodeCol2')}
                   </th>
+                  <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
+                    {t('itemNameCol2')}
+                  </th>
+                  {warehouses.map((wh) => (
+                    <th key={wh.id} className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                      {wh.name}
+                    </th>
+                  ))}
+                  <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
+                    {t('totalStock')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {stockMatrix.map((row) => (
+                  <tr
+                    key={row.itemCode}
+                    className="border-b border-solid border-white/5 hover:bg-white/2 transition-all"
+                  >
+                    <td className="py-3.5 pl-2">
+                      <span className="text-[10px] font-mono font-bold text-neutral-200">{row.itemCode}</span>
+                    </td>
+                    <td className="py-3.5">
+                      <span className="text-xs font-semibold text-neutral-300">{row.itemName}</span>
+                    </td>
+                    {warehouses.map((wh) => {
+                      const qty = row.warehouseStocks[wh.id] || 0;
+                      return (
+                        <td key={wh.id} className="py-3.5 text-center">
+                          <span className={`text-xs font-mono font-semibold ${qty > 0 ? 'text-neutral-200' : 'text-neutral-600'}`}>
+                            {qty} <span className="text-[9px] text-neutral-600">{row.unit}</span>
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="py-3.5 text-right pr-2 font-semibold">
+                      <span className={`text-xs font-mono ${row.totalStock > 0 ? 'text-neutral-200 font-bold' : 'text-neutral-600'}`}>
+                        {row.totalStock} <span className="text-[9px] text-neutral-600">{row.unit}</span>
+                      </span>
+                    </td>
+                  </tr>
                 ))}
-                <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
-                  {t('totalStock')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {stockMatrix.map((row) => (
-                <tr
-                  key={row.itemCode}
-                  className="border-b border-solid border-white/5 hover:bg-white/2 transition-all"
-                >
-                  <td className="py-3.5 pl-2">
-                    <span className="text-[10px] font-mono font-bold text-neutral-200">{row.itemCode}</span>
-                  </td>
-                  <td className="py-3.5">
-                    <span className="text-xs font-semibold text-neutral-300">{row.itemName}</span>
-                  </td>
-                  {warehouses.map((wh) => {
-                    const qty = row.warehouseStocks[wh.id] || 0;
-                    return (
-                      <td key={wh.id} className="py-3.5 text-center">
-                        <span className={`text-xs font-mono font-semibold ${qty > 0 ? 'text-neutral-200' : 'text-neutral-600'}`}>
-                          {qty} <span className="text-[9px] text-neutral-600">{row.unit}</span>
-                        </span>
-                      </td>
-                    );
-                  })}
-                  <td className="py-3.5 text-right pr-2 font-semibold">
-                    <span className={`text-xs font-mono ${row.totalStock > 0 ? 'text-neutral-200 font-bold' : 'text-neutral-600'}`}>
-                      {row.totalStock} <span className="text-[9px] text-neutral-600">{row.unit}</span>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {stockMatrix.length === 0 && (
-                <tr>
-                  <td colSpan={3 + warehouses.length} className="text-center py-6 text-[10px] font-mono text-neutral-600">
-                    {t('noInventoryData')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                {stockMatrix.length === 0 && (
+                  <tr>
+                    <td colSpan={3 + warehouses.length} className="text-center py-6 text-[10px] font-mono text-neutral-600">
+                      {t('noInventoryData')}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </UdsCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -316,6 +335,13 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
           </div>
         </div>
       )}
+
+      <AuditLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        resource="goods-moves"
+        title={t('movementLedger') || '货物流转审计'}
+      />
     </div>
   );
 };

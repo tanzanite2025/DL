@@ -162,27 +162,6 @@ export const GoodsMovementForm: React.FC<GoodsMovementFormProps> = ({
     if (initialRemarks) setFormRemarks(initialRemarks);
   }, [initialRemarks]);
 
-  const handleAddItem = () => {
-    const qtyInt = parseInt(formQty);
-    if (!formItemId || isNaN(qtyInt) || qtyInt <= 0) {
-      showToast(t('errMovementFormInvalid'), 'error');
-      return;
-    }
-
-    setItemsList((prev) => {
-      const idx = prev.findIndex((item) => item.itemId === formItemId);
-      if (idx > -1) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], qty: next[idx].qty + qtyInt };
-        return next;
-      } else {
-        return [...prev, { itemId: formItemId, qty: qtyInt }];
-      }
-    });
-
-    setFormQty('');
-  };
-
   const handleRemoveItem = (index: number) => {
     setItemsList((prev) => prev.filter((_, i) => i !== index));
   };

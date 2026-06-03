@@ -118,6 +118,7 @@ router.get('/purchase-orders', authenticateToken, requirePermission('canAccessPu
       include: {
         supplier: true,
         item: true,
+        currency: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -129,9 +130,9 @@ router.get('/purchase-orders', authenticateToken, requirePermission('canAccessPu
 });
 
 router.post('/purchase-orders', authenticateToken, requirePermission('canAccessPurchase'), async (req: AuthenticatedRequest, res: Response) => {
-  const { supplierId, itemId, qty, price, status, expectedDate } = req.body;
-  if (!supplierId || !itemId || qty === undefined || price === undefined) {
-    return res.status(400).json({ error: '[CRITICAL] 采购订单录入缺少核心字段（供应商、物料、数量、单价）。' });
+  const { supplierId, itemId, qty, price, status, expectedDate, currencyId } = req.body;
+  if (!supplierId || !itemId || qty === undefined || price === undefined || !currencyId) {
+    return res.status(400).json({ error: '[CRITICAL] 采购订单录入缺少核心字段（供应商、物料、数量、单价、币种）。' });
   }
   const parsedQty = parseInt(qty);
   const parsedPrice = parseFloat(price);
@@ -171,12 +172,14 @@ router.post('/purchase-orders', authenticateToken, requirePermission('canAccessP
         qty: parsedQty,
         price: parsedPrice,
         totalPrice,
+        currencyId,
         status: status || 'DRAFT',
         expectedDate: expectedDate ? new Date(expectedDate) : null,
       },
       include: {
         supplier: true,
         item: true,
+        currency: true,
       }
     });
     return res.json(newOrder);
@@ -188,9 +191,9 @@ router.post('/purchase-orders', authenticateToken, requirePermission('canAccessP
 
 router.put('/purchase-orders/:id', authenticateToken, requirePermission('canAccessPurchase'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { supplierId, itemId, qty, price, status, expectedDate } = req.body;
-  if (!supplierId || !itemId || qty === undefined || price === undefined || !status) {
-    return res.status(400).json({ error: '[CRITICAL] 更新采购订单缺少核心字段（供应商、物料、数量、单价、状态）。' });
+  const { supplierId, itemId, qty, price, status, expectedDate, currencyId } = req.body;
+  if (!supplierId || !itemId || qty === undefined || price === undefined || !status || !currencyId) {
+    return res.status(400).json({ error: '[CRITICAL] 更新采购订单缺少核心字段（供应商、物料、数量、单价、状态、币种）。' });
   }
   const parsedQty = parseInt(qty);
   const parsedPrice = parseFloat(price);
@@ -218,12 +221,14 @@ router.put('/purchase-orders/:id', authenticateToken, requirePermission('canAcce
         qty: parsedQty,
         price: parsedPrice,
         totalPrice,
+        currencyId,
         status,
         expectedDate: expectedDate ? new Date(expectedDate) : null,
       },
       include: {
         supplier: true,
         item: true,
+        currency: true,
       }
     });
     return res.json(updated);
@@ -262,7 +267,7 @@ router.post('/purchase-orders/:id/receive', authenticateToken, requirePermission
   try {
     const order = await prisma.purchaseOrder.findUnique({
       where: { id },
-      include: { item: true, supplier: true }
+      include: { item: true, supplier: true, currency: true }
     });
 
     if (!order) {
@@ -301,6 +306,7 @@ router.post('/purchase-orders/:id/receive', authenticateToken, requirePermission
       include: {
         supplier: true,
         item: true,
+        currency: true,
       }
     });
 

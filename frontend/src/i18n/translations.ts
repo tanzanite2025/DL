@@ -58,17 +58,19 @@ export const translations = {
     permissionPurchase: "采购\n管理",
     permissionAssembly: "BOM\n组装",
     
-    // BOM 组装功能
-    bomConfig: "BOM配置",
+    // BOM 配置功能（统一为物料）
+    bomConfig: "BOM 基本信息",
+    bomName: "BOM 名称",
+    bomDesc: "BOM 说明",
     assemblyOperation: "组装操作",
     productType: "产品类型",
-    typeMaterial: "原材料/零件",
-    typeProduct: "成品/组装件",
+    typeMaterial: "原材料/物料",
+    typeProduct: "成品/组合物料",
     itemCost: "成本价",
     configureBom: "配置 BOM 清单",
     selectProduct: "选择成品",
-    addComponent: "添加零件",
-    componentItem: "零件名称",
+    addComponent: "添加物料",
+    componentItem: "物料名称",
     requiredQty: "所需数量",
     bomSaveSuccess: "BOM 配置保存成功",
     assemblyQty: "组装数量",
@@ -87,8 +89,8 @@ export const translations = {
     typeDisassemble: "拆解",
     needColumn: "需要",
     stockColumn: "库存",
-    noBomComponents: "未配置任何零件",
-    bomComponents: "BOM 清单零件",
+    noBomComponents: "未配置任何物料",
+    bomComponents: "BOM 清单物料",
     newRoleCodeName: "新角色代码或名称",
     roleNamePlaceholder: "请输入新角色名称",
     createRoleButton: "创建角色",
@@ -131,6 +133,14 @@ export const translations = {
     itemUnitCol: "单位",
     itemSpecCol: "规格",
     noItemsRegistered: "未登记任何物料",
+
+    // 单位管理
+    unitsHeader: "全局单位主数据",
+    unitCode: "单位代码",
+    unitName: "单位名称",
+    unitCodePlaceholder: "例如: PCS / SET / KG",
+    unitNamePlaceholder: "例如: 件 / 套 / 千克",
+    addUnit: "新增单位",
 
     // 货物流转页面
     stockFlowHeader: "库存流转控制",
@@ -253,6 +263,7 @@ export const translations = {
     paidAmount: "已付核销",
     pendingRecovery: "待收余额",
     pendingPayment: "待付余额",
+    ledgerCurrency: "币种账本",
     recoveryProgress: "收回进度",
     paymentProgress: "结算进度",
     recordBill: "录入收付单据",
@@ -384,6 +395,14 @@ export const translations = {
     bankPlaceholder: "请输入银行卡号",
     writeOffSuccess: "账款成功核销，使用账户：",
 
+    // 审计日志
+    auditLog: "审计日志",
+    noData: "暂无数据",
+    user: "用户",
+    action: "动作",
+    status: "状态",
+    duration: "耗时(ms)",
+
     // 登录与全局
     errLoginEmpty: "用户名和密码不能为空",
     errNetwork: "网络连接失败，请检查后端服务是否开启。",
@@ -421,6 +440,9 @@ export const translations = {
     voidMovementConfirm: "确定要作废并删除这条流转记录吗？作废后库存将自动重算恢复。",
     voidSuccess: "流转记录已成功作废",
     errVoidFailed: "作废流转记录失败",
+    warehouseInventoryTitle: "仓库库存明细",
+    warehouseInventorySearchPlaceholder: "按编码或名称搜索物料",
+    noWarehouseInventory: "该仓库暂无任何库存记录",
     
     wechatId: "微信号",
     alipayAccount: "支付宝账号",
@@ -556,9 +578,11 @@ export const translations = {
     typeProduct: "Finished Product",
     itemCost: "Cost Price",
     configureBom: "Configure BOM",
+    bomName: "BOM Name",
+    bomDesc: "BOM Description",
     selectProduct: "Select Product",
     addComponent: "Add Component",
-    componentItem: "Component",
+    componentItem: "Component Item",
     requiredQty: "Required Qty",
     bomSaveSuccess: "BOM saved",
     assemblyQty: "Assembly Qty",
@@ -621,6 +645,14 @@ export const translations = {
     itemUnitCol: "Unit",
     itemSpecCol: "Specification",
     noItemsRegistered: "No stock items registered",
+
+    // Units Management
+    unitsHeader: "Units Master Data",
+    unitCode: "Unit Code",
+    unitName: "Unit Name",
+    unitCodePlaceholder: "e.g., PCS / SET / KG",
+    unitNamePlaceholder: "e.g., Pcs / Set / Kilogram",
+    addUnit: "Add Unit",
 
     // Goods Movements Page
     stockFlowHeader: "Stock Flow Control",
@@ -743,6 +775,7 @@ export const translations = {
     paidAmount: "Paid",
     pendingRecovery: "Pending",
     pendingPayment: "Pending",
+    ledgerCurrency: "Currency Ledger",
     recoveryProgress: "Recovery Progress",
     paymentProgress: "Payment Progress",
     recordBill: "Record Bill / Invoice",
@@ -874,6 +907,14 @@ export const translations = {
     bankPlaceholder: "Enter bank account number",
     writeOffSuccess: "Write-off registered successfully, account: ",
 
+    // Audit logs
+    auditLog: "Audit Log",
+    noData: "No data",
+    user: "User",
+    action: "Action",
+    status: "Status",
+    duration: "Duration(ms)",
+
     // Login & general
     errLoginEmpty: "Username and password cannot be empty",
     errNetwork: "Network error, please check if server is running.",
@@ -911,6 +952,9 @@ export const translations = {
     voidMovementConfirm: "Confirm voiding this movement record? Stock will be recalculated automatically.",
     voidSuccess: "Movement record voided successfully",
     errVoidFailed: "Failed to void movement record",
+    warehouseInventoryTitle: "Warehouse Inventory Details",
+    warehouseInventorySearchPlaceholder: "Search by code or name",
+    noWarehouseInventory: "No inventory records for this warehouse",
     
     wechatId: "WeChat ID",
     alipayAccount: "Alipay Account",

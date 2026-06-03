@@ -1,49 +1,71 @@
 import React, { useState } from 'react';
-import { UdsHeader, UdsCard, UdsButton, UdsInput } from '../components/uds/UdsComponents';
+import { UdsHeader, UdsButton } from '../components/uds/UdsComponents';
+import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { useI18n } from '../i18n/I18nContext';
-import { Package, Trash2, Edit3, Box } from 'lucide-react';
 import { Item, ShowToast } from '../types';
 import { useItems } from '../hooks/useItems';
-import { useWarehouses } from '../hooks/useWarehouses';
-import { assemblyApi } from '../services/api';
+import { useUnits } from '../hooks/useUnits';
+import { useCurrencies } from '../hooks/useCurrencies';
+import { bomApi } from '../services/api';
+import { ProductFormPanel } from '../components/products/ProductFormPanel';
+import { ProductLedger } from '../components/products/ProductLedger';
+import { BomConfigModal } from '../components/products/BomConfigModal';
+
 
 interface ProductsManagementProps {
   token: string;
   showToast: ShowToast;
 }
 
+interface BomComponent {
+  componentItemId: string;
+  componentItem: Item;
+  quantity: number;
+  remarks?: string;
+}
+
 export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _token, showToast }) => {
   const { t } = useI18n();
   const { items, isLoading, createItem, updateItem, deleteItem } = useItems();
-  const { warehouses } = useWarehouses();
+  const { units } = useUnits();
+  const { currencies } = useCurrencies();
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 表单状态
   const [itemCode, setItemCode] = useState('');
   const [itemName, setItemName] = useState('');
   const [itemUnit, setItemUnit] = useState('件');
   const [itemDescription, setItemDescription] = useState('');
+  const [itemCost, setItemCost] = useState('0');
+  const [itemCurrencyId, setItemCurrencyId] = useState('');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
-  // 组装模态框状态
-  const [assemblyModalOpen, setAssemblyModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [assemblyQty, setAssemblyQty] = useState('1');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
-  const [assemblyRemarks, setAssemblyRemarks] = useState('');
-  const [isAssembling, setIsAssembling] = useState(false);
+  // BOM 配置状态（仅用于新建 BOM 成品）
+  const [bomComponents, setBomComponents] = useState<BomComponent[]>([]);
+  const [isSavingBom, setIsSavingBom] = useState(false);
+  const [newComponentId, setNewComponentId] = useState('');
+  const [newComponentQty, setNewComponentQty] = useState('1');
+
+  // BOM 成品创建弹窗状态
+  const [isBomModalOpen, setIsBomModalOpen] = useState(false);
+  const [newBomName, setNewBomName] = useState('');
+  const [newBomUnit, setNewBomUnit] = useState('件');
+  const [newBomDesc, setNewBomDesc] = useState('');
+  const [newBomCurrencyId, setNewBomCurrencyId] = useState('');
 
   // 登记或更新物料商品
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!itemName.trim() || !itemUnit.trim()) {
-      showToast(t('errItemFormRequired'), 'error');
+    if (!itemName.trim() || !itemUnit.trim() || !itemCurrencyId) {
+      showToast('请输入必填信息并选择币种', 'error');
       return;
     }
 
     const payload: any = {
       name: itemName.trim(),
       unit: itemUnit.trim(),
-      description: itemDescription.trim() || null
+      description: itemDescription.trim() || null,
+      cost: parseFloat(itemCost) || 0,
     };
 
     // 编辑状态下额外携带 code
@@ -58,12 +80,17 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
           name: itemName.trim(),
           unit: itemUnit.trim(),
           description: itemDescription.trim() || undefined,
+          cost: parseFloat(itemCost) || 0,
+          currencyId: itemCurrencyId
         });
       } else {
         await createItem({
           name: itemName.trim(),
           unit: itemUnit.trim(),
           description: itemDescription.trim() || undefined,
+          cost: parseFloat(itemCost) || 0,
+          currencyId: itemCurrencyId,
+          type: 'MATERIAL'
         });
       }
 
@@ -77,6 +104,8 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
       setItemName('');
       setItemUnit('件');
       setItemDescription('');
+      setItemCost('0');
+      setItemCurrencyId('');
       setEditingItemId(null);
     } catch (error: any) {
       showToast(error.message || t('errItemFormRequired'), 'error');
@@ -90,6 +119,8 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
     setItemName(item.name);
     setItemUnit(item.unit);
     setItemDescription(item.description || '');
+    setItemCost(item.cost != null ? String(item.cost) : '0');
+    // setItemCurrencyId(item.currencyId || ''); // 物料币种暂不参与类型系统
   };
 
   // 取消编辑
@@ -99,6 +130,8 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
     setItemName('');
     setItemUnit('件');
     setItemDescription('');
+    setItemCost('0');
+    // setItemCurrencyId('');
   };
 
   // 删除产品
@@ -115,67 +148,96 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
     }
   };
 
-  // 打开组装模态框
-  const openAssemblyModal = async (item: Item) => {
-    setSelectedItem(item);
-    setAssemblyModalOpen(true);
-    setAssemblyQty('1');
-    setAssemblyRemarks('');
-    if (warehouses.length > 0 && !selectedWarehouseId) {
-      setSelectedWarehouseId(warehouses[0].id);
-    }
-  };
-
-  // 关闭组装模态框
-  const closeAssemblyModal = () => {
-    setAssemblyModalOpen(false);
-    setSelectedItem(null);
-    setAssemblyQty('1');
-    setAssemblyRemarks('');
-  };
-
-  // 执行组装
-  const handleAssemble = async () => {
-    if (!selectedItem || !selectedWarehouseId || !assemblyQty) {
-      showToast(t('errItemFormRequired'), 'error');
+  // 添加 BOM 零件（仅用于新建 BOM 成品时在弹窗中配置清单）
+  const handleAddBomComponent = () => {
+    if (!newComponentId) {
+      showToast(t('selectItem'), 'error');
       return;
     }
 
-    const qty = parseInt(assemblyQty);
+    const qty = parseInt(newComponentQty, 10);
     if (isNaN(qty) || qty <= 0) {
       showToast(t('errMovementFormInvalid'), 'error');
       return;
     }
 
-    setIsAssembling(true);
+    if (bomComponents.some((c) => c.componentItemId === newComponentId)) {
+      showToast(t('errItemFormRequired'), 'error');
+      return;
+    }
+
+    const item = items.find((i) => i.id === newComponentId);
+    if (!item) return;
+
+    setBomComponents([
+      ...bomComponents,
+      {
+        componentItemId: item.id,
+        componentItem: item,
+        quantity: qty,
+      },
+    ]);
+
+    setNewComponentId('');
+    setNewComponentQty('1');
+  };
+
+  // 删除 BOM 零件
+  const handleRemoveBomComponent = (componentItemId: string) => {
+    setBomComponents(bomComponents.filter((c) => c.componentItemId !== componentItemId));
+  };
+
+  // 保存 BOM
+  const handleSaveBom = async () => {
+    if (bomComponents.length === 0 || !newBomCurrencyId) {
+      showToast('缺少 BOM 零件或未选择币种', 'error');
+      return;
+    }
+
+    setIsSavingBom(true);
     try {
-      // 先检查库存
-      const checkResult = await assemblyApi.check({
-        assembledItemId: selectedItem.id,
-        quantity: qty,
-        warehouseId: selectedWarehouseId,
-      }) as { canAssemble: boolean; insufficient?: Array<{ componentId: string; need: number; available: number }> };
+      // 先根据用户输入创建一个新的 BOM 成品物料，成本按物料成本 * 数量汇总
+      const bomCost = bomComponents.reduce((sum, comp) => {
+        const c = comp.componentItem.cost ?? 0;
+        return sum + c * comp.quantity;
+      }, 0);
 
-      if (!checkResult.canAssemble) {
-        showToast(t('errStockInsufficient'), 'error');
-        setIsAssembling(false);
-        return;
-      }
-
-      // 执行组装
-      await assemblyApi.assemble({
-        assembledItemId: selectedItem.id,
-        quantity: qty,
-        warehouseId: selectedWarehouseId,
-        remarks: assemblyRemarks,
+      const newItem: any = await createItem({
+        name: newBomName.trim(),
+        unit: newBomUnit.trim() || '件',
+        description: newBomDesc.trim() || undefined,
+        cost: bomCost,
+        currencyId: newBomCurrencyId,
+        type: 'PRODUCT',
       });
 
-      showToast(t('assembleSuccess'), 'success');
-      closeAssemblyModal();
+      const parentItemId = newItem?.id as string | undefined;
+
+      const componentsData = bomComponents.map((c) => ({
+        componentItemId: c.componentItemId,
+        quantity: c.quantity,
+        remarks: c.remarks || '',
+      }));
+
+      await bomApi.save({
+        parentItemId: parentItemId!,
+        components: componentsData,
+      });
+
+      showToast(t('bomSaveSuccess'), 'success');
+      // 重置表单
+      setNewBomName('');
+      setNewBomUnit('件');
+      setNewBomDesc('');
+      setNewBomCurrencyId('');
+      setBomComponents([]);
+      setNewComponentId('');
+      setNewComponentQty('1');
+      setIsBomModalOpen(false);
     } catch (error: any) {
       showToast(error.message || t('errNetwork'), 'error');
     } finally {
-      setIsAssembling(false);
+      setIsSavingBom(false);
     }
   };
 
@@ -189,6 +251,20 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
     );
   }
 
+  // 计算 BOM 成分的成本总和（按币种分类）
+  const bomCostSummary = bomComponents.reduce((acc, comp) => {
+    const symbol = comp.componentItem.currency?.symbol || '¥';
+    const cost = (comp.componentItem.cost || 0) * comp.quantity;
+    if (!acc[symbol]) {
+      acc[symbol] = 0;
+    }
+    acc[symbol] += cost;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const materials = items.filter(i => i.type !== 'PRODUCT');
+  const products = items.filter(i => i.type === 'PRODUCT');
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-700">
       {/* 页眉 - 已隐藏（保留代码便于定位） */}
@@ -198,238 +274,78 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
         description={t('productsDesc')}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* 左侧：表单配置 */}
-        <div className="lg:col-span-5">
-          <UdsCard
-            title={editingItemId ? t('editProduct') : t('registerProduct')}
-            action={
-              editingItemId && (
-                <UdsButton variant="ghost" onClick={cancelEdit} className="h-7 px-3">
-                  {t('cancel')}
-                </UdsButton>
-              )
-            }
-          >
-            <form onSubmit={handleSaveItem} className="flex flex-col gap-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <UdsInput
-                    label={t('itemCode')}
-                    value={editingItemId ? itemCode : t('systemAutoAssigned')}
-                    disabled
-                  />
-                </div>
-                <div>
-                  <UdsInput
-                    label={t('itemUnit')}
-                    placeholder={t('itemUnitPlaceholder')}
-                    value={itemUnit}
-                    onChange={(e) => setItemUnit(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <UdsInput
-                label={t('itemName')}
-                placeholder={t('itemNamePlaceholder')}
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-                required
-              />
-
-              <UdsInput
-                label={t('itemDesc')}
-                placeholder={t('itemDescPlaceholder')}
-                value={itemDescription}
-                onChange={(e) => setItemDescription(e.target.value)}
-              />
-
-              <div className="border-t border-solid border-white/5 pt-4">
-                <UdsButton type="submit" variant="primary" className="w-full">
-                  {editingItemId ? t('saveChanges') : t('registerProduct')}
-                </UdsButton>
-              </div>
-            </form>
-          </UdsCard>
-        </div>
-
-        {/* 右侧：列表账册 */}
-        <div className="lg:col-span-7">
-          <UdsCard title={t('registeredProductLedger')}>
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-solid border-white/10">
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
-                      {t('itemCodeCol')}
-                    </th>
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
-                      {t('itemNameCol')}
-                    </th>
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
-                      {t('itemUnitCol')}
-                    </th>
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
-                      {t('itemSpecCol')}
-                    </th>
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
-                      {t('actionsColumn')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-solid border-white/5 hover:bg-white/2 transition-all text-xs"
-                    >
-                      <td className="py-3.5 pl-2 font-mono font-bold text-neutral-200">
-                        {item.code}
-                      </td>
-                      <td className="py-3.5">
-                        <div className="flex items-center gap-1.5 font-semibold text-neutral-200">
-                          <Package size={13} className="text-neutral-400" />
-                          <span>{item.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 text-center font-bold text-neutral-400">
-                        {item.unit}
-                      </td>
-                      <td className="py-3.5 text-neutral-500 font-mono text-[10px] max-w-[150px] truncate">
-                        {item.description || '-'}
-                      </td>
-                      <td className="py-3.5 text-right pr-2">
-                        <div className="flex items-center justify-end gap-2">
-                          <UdsButton
-                            variant="ghost"
-                            className="h-7 px-2 rounded-full border-none text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 text-[10px] font-black uppercase"
-                            onClick={() => openAssemblyModal(item)}
-                            title={t('executeAssembly')}
-                          >
-                            <Box size={11} className="mr-1" />
-                            {t('executeAssembly')}
-                          </UdsButton>
-                          <UdsButton
-                            variant="ghost"
-                            className="h-7 w-7 !p-0 rounded-full border-none text-neutral-400 hover:text-white"
-                            onClick={() => startEdit(item)}
-                          >
-                            <Edit3 size={11} />
-                          </UdsButton>
-                          <UdsButton
-                            variant="ghost"
-                            className="h-7 w-7 !p-0 rounded-full border-none text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <Trash2 size={11} />
-                          </UdsButton>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-6 text-[10px] font-mono text-neutral-600">
-                        {t('noProductsRegistered')}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </UdsCard>
-        </div>
+      <div className="flex justify-end">
+        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
+          审计日志
+        </UdsButton>
       </div>
 
-      {/* 组装模态框 */}
-      {assemblyModalOpen && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-[#121214] border border-white/10 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl animate-in zoom-in-95 duration-300">
-            <h3 className="text-lg font-black uppercase tracking-wider text-white mb-6 flex items-center gap-2">
-              <Box size={20} className="text-emerald-400" />
-              {t('executeAssembly')}
-            </h3>
-
-            <div className="flex flex-col gap-4 mb-6">
-              {/* 产品名称 */}
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
-                  {t('itemName')}
-                </label>
-                <div className="bg-[#1c1c1e]/50 rounded-2xl px-4 py-3 text-sm text-neutral-200 font-semibold">
-                  {selectedItem.name} ({selectedItem.code})
-                </div>
-              </div>
-
-              {/* 仓库选择 */}
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
-                  {t('warehouseName')}
-                </label>
-                <select
-                  className="w-full h-11 px-4 rounded-2xl border border-white/5 bg-[#1c1c1e]/50 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer"
-                  value={selectedWarehouseId}
-                  onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                >
-                  {warehouses.map((wh) => (
-                    <option key={wh.id} value={wh.id} className="bg-[#121214] text-white">
-                      {wh.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 组装数量 */}
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
-                  {t('assemblyQty')}
-                </label>
-                <UdsInput
-                  type="number"
-                  min="1"
-                  value={assemblyQty}
-                  onChange={(e) => setAssemblyQty(e.target.value)}
-                  placeholder="1"
-                />
-              </div>
-
-              {/* 备注 */}
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-2">
-                  {t('remarks')}
-                </label>
-                <UdsInput
-                  value={assemblyRemarks}
-                  onChange={(e) => setAssemblyRemarks(e.target.value)}
-                  placeholder={t('remarksPlaceholder')}
-                />
-              </div>
-            </div>
-
-            {/* 操作按钮 */}
-            <div className="flex gap-3 border-t border-white/5 pt-6">
-              <UdsButton
-                variant="ghost"
-                onClick={closeAssemblyModal}
-                className="flex-1"
-                disabled={isAssembling}
-              >
-                {t('cancel')}
-              </UdsButton>
-              <UdsButton
-                variant="primary"
-                onClick={handleAssemble}
-                className="flex-1"
-                disabled={isAssembling}
-              >
-                {isAssembling ? t('loading') : t('executeAssembly')}
-              </UdsButton>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* 左侧：产品表单 */}
+        <div className="lg:col-span-5">
+          <ProductFormPanel
+            editingItemId={editingItemId}
+            itemCode={itemCode}
+            itemName={itemName}
+            itemUnit={itemUnit}
+            itemDescription={itemDescription}
+            itemCost={itemCost}
+            itemCurrencyId={itemCurrencyId}
+            units={units}
+            currencies={currencies}
+            onItemCodeChange={setItemCode}
+            onItemNameChange={setItemName}
+            onItemUnitChange={setItemUnit}
+            onItemDescriptionChange={setItemDescription}
+            onItemCostChange={setItemCost}
+            onItemCurrencyIdChange={setItemCurrencyId}
+            onSubmit={handleSaveItem}
+            onCancel={cancelEdit}
+          />
         </div>
-      )}
+ 
+        {/* 右侧：列表账册 */}
+        <ProductLedger
+          materials={materials}
+          products={products}
+          onEdit={startEdit}
+          onDelete={handleDelete}
+          onOpenBomModal={() => setIsBomModalOpen(true)}
+        />
+      </div>
+      
+
+      <BomConfigModal
+        isOpen={isBomModalOpen}
+        onClose={() => setIsBomModalOpen(false)}
+        bomComponents={bomComponents}
+        newComponentId={newComponentId}
+        newComponentQty={newComponentQty}
+        newBomName={newBomName}
+        newBomUnit={newBomUnit}
+        newBomDesc={newBomDesc}
+        newBomCurrencyId={newBomCurrencyId}
+        items={items}
+        units={units}
+        currencies={currencies}
+        bomCostSummary={bomCostSummary}
+        isSaving={isSavingBom}
+        onBomNameChange={setNewBomName}
+        onBomUnitChange={setNewBomUnit}
+        onBomDescChange={setNewBomDesc}
+        onBomCurrencyIdChange={setNewBomCurrencyId}
+        onComponentIdChange={setNewComponentId}
+        onComponentQtyChange={setNewComponentQty}
+        onAddComponent={handleAddBomComponent}
+        onRemoveComponent={handleRemoveBomComponent}
+        onSaveBom={handleSaveBom}
+      />
+      <AuditLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        resource="items"
+        title={'物料/产品审计'}
+      />
     </div>
   );
 };

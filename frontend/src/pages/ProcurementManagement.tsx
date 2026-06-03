@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '../components/uds/UdsComponents';
+import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
 import { PurchaseOrderForm } from '../components/uds/PurchaseOrderForm';
 import { useI18n } from '../i18n/I18nContext';
 import { Users, Trash2, Edit3, TruckIcon } from 'lucide-react';
 import { Supplier, PurchaseOrder, ShowToast } from '../types';
-import { useSuppliers } from '../hooks/useSuppliers';
 import { useItems } from '../hooks/useItems';
-import { useWarehouses } from '../hooks/useWarehouses';
+import { useSuppliers } from '../hooks/useSuppliers';
 import { usePurchaseOrders } from '../hooks/usePurchaseOrders';
+import { useCurrencies } from '../hooks/useCurrencies';
 
 interface ProcurementManagementProps {
   token: string;
@@ -20,9 +21,9 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   const [activeTab, setActiveTab] = useState<'suppliers' | 'orders'>('suppliers');
   const { suppliers, isLoading: suppliersLoading, createSupplier, updateSupplier, deleteSupplier } = useSuppliers();
   const { items, isLoading: itemsLoading } = useItems();
-  const { warehouses, isLoading: whLoading } = useWarehouses();
   const { orders: purchaseOrders, isLoading: ordersLoading, createOrder, updateOrder, deleteOrder, receiveOrder } = usePurchaseOrders();
-  const isLoading = suppliersLoading || itemsLoading || whLoading || ordersLoading;
+  const { currencies } = useCurrencies();
+  const isLoading = suppliersLoading || itemsLoading || ordersLoading;
 
   // 供应商表单状态
   const [supplierName, setSupplierName] = useState('');
@@ -38,10 +39,12 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   const [orderItemId, setOrderItemId] = useState('');
   const [orderQty, setOrderQty] = useState('');
   const [orderPrice, setOrderPrice] = useState('');
+  const [orderCurrencyId, setOrderCurrencyId] = useState('');
   const [orderExpectedDate, setOrderExpectedDate] = useState('');
   const [orderStatus, setOrderStatus] = useState<'DRAFT' | 'CONFIRMED' | 'RECEIVED' | 'CLOSED'>('DRAFT');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 收货表单状态
   const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
@@ -128,6 +131,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
           itemId: item.itemId,
           qty: item.qty,
           price: item.price,
+          currencyId: item.currencyId,
           status: 'DRAFT',
           expectedDate: item.expectedDate || null,
         });
@@ -144,7 +148,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
     const qtyInt = parseInt(orderQty);
     const priceFloat = parseFloat(orderPrice);
 
-    if (!orderSupplierId || !orderItemId || isNaN(qtyInt) || isNaN(priceFloat)) {
+    if (!orderSupplierId || !orderItemId || isNaN(qtyInt) || isNaN(priceFloat) || !orderCurrencyId) {
       showToast(t('errPurchaseFormRequired'), 'error');
       return;
     }
@@ -159,6 +163,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
       itemId: orderItemId,
       qty: qtyInt,
       price: priceFloat,
+      currencyId: orderCurrencyId,
       status: orderStatus,
       expectedDate: orderExpectedDate || null,
     };
@@ -183,6 +188,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   const clearOrderForm = () => {
     setOrderQty('');
     setOrderPrice('');
+    setOrderCurrencyId('');
     setOrderExpectedDate('');
     setOrderStatus('DRAFT');
     setEditingOrderId(null);
@@ -196,6 +202,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
     setOrderItemId(order.itemId);
     setOrderQty(order.qty.toString());
     setOrderPrice(order.price.toString());
+    setOrderCurrencyId(order.currencyId || '');
     setOrderStatus(order.status);
     setOrderExpectedDate(order.expectedDate ? order.expectedDate.split('T')[0] : '');
   };
@@ -235,6 +242,12 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
         title={t('procurementHeader')}
         description={t('procurementDesc')}
       />
+
+      <div className="flex justify-end">
+        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
+          审计日志
+        </UdsButton>
+      </div>
 
       {/* TAB 切换 */}
       <div className="flex bg-[#121214] p-1.5 rounded-2xl border border-dashed border-white/5 self-start gap-2">
@@ -329,7 +342,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
           <div className="lg:col-span-7">
             <UdsCard title={t('supplierList')}>
               <div className="flex flex-col gap-4">
-                {suppliers.map((supplier) => (
+                {suppliers.map((supplier: Supplier) => (
                   <div
                     key={supplier.id}
                     className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl border border-dashed border-white/5 bg-white/2"
@@ -422,7 +435,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                 <form onSubmit={handleSavePurchaseOrder} className="flex flex-col gap-4">
                   <UdsSelect
                     label={t('selectSupplier')}
-                    options={suppliers.map(s => ({ value: s.id, label: `[${s.code}] ${s.name}` }))}
+                    options={suppliers.map((s: Supplier) => ({ value: s.id, label: `[${s.code}] ${s.name}` }))}
                     value={orderSupplierId}
                     onChange={(e) => setOrderSupplierId(e.target.value)}
                   />
@@ -453,12 +466,24 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                       required
                     />
                   </div>
-                  <UdsInput
-                    label={t('expectedDeliveryDate')}
-                    type="date"
-                    value={orderExpectedDate}
-                    onChange={(e) => setOrderExpectedDate(e.target.value)}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <UdsSelect
+                      label="币种"
+                      options={[
+                        { value: '', label: '选择币种' },
+                        ...currencies.map(c => ({ value: c.id, label: `${c.name} (${c.symbol})` }))
+                      ]}
+                      value={orderCurrencyId}
+                      onChange={(e) => setOrderCurrencyId(e.target.value)}
+                      required
+                    />
+                    <UdsInput
+                      label={t('expectedDeliveryDate')}
+                      type="date"
+                      value={orderExpectedDate}
+                      onChange={(e) => setOrderExpectedDate(e.target.value)}
+                    />
+                  </div>
                   <UdsSelect
                     label={t('orderStatus')}
                     options={[
@@ -512,6 +537,9 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                         {t('orderStatus')}
                       </th>
                       <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right">
+                        币种/金额
+                      </th>
+                      <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right">
                         {t('qtyCol')}
                       </th>
                       <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
@@ -555,6 +583,9 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                           {order.status === 'CLOSED' && (
                             <UdsBadge status="critical">{t('statusClosed')}</UdsBadge>
                           )}
+                        </td>
+                        <td className="py-3.5 text-right font-mono text-sm font-bold text-neutral-200">
+                          {order.currency?.symbol}{order.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                         <td className="py-3.5 text-right font-mono">
                           <div className="flex flex-col items-end">
@@ -652,7 +683,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
       {/* 新建采购订单 Modal 弹窗 */}
       {isOrderModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="relative w-full w-[85vw] max-w-7xl h-[80vh] flex flex-col animate-uds-fade">
+          <div className="relative w-[90vw] max-w-[1600px] h-[80vh] flex flex-col animate-uds-fade">
             <PurchaseOrderForm
               className="h-full flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
               showToast={showToast}
@@ -669,6 +700,13 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
           </div>
         </div>
       )}
+
+      <AuditLogModal
+        isOpen={isAuditOpen}
+        onClose={() => setIsAuditOpen(false)}
+        resource="purchase-orders"
+        title={t('purchaseOrderList') || '采购订单审计'}
+      />
     </div>
   );
 };

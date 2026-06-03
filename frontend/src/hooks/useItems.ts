@@ -20,13 +20,13 @@ export function useItems() {
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
-  const createItem = async (data: { name: string; unit?: string; description?: string }) => {
+  const createItem = async (data: { name: string; unit?: string; description?: string; cost?: number; currencyId?: string; type?: string }) => {
     const result = await itemsApi.create(data);
     await fetchItems();
     return result;
   };
 
-  const updateItem = async (id: string, data: { code: string; name: string; unit: string; description?: string }) => {
+  const updateItem = async (id: string, data: { code: string; name: string; unit: string; description?: string; cost?: number; currencyId?: string; type?: string }) => {
     const result = await itemsApi.update(id, data);
     await fetchItems();
     return result;

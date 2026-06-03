@@ -77,9 +77,9 @@ export const warehousesApi = {
 // --- Items ---
 export const itemsApi = {
   list: () => request<any[]>('/items'),
-  create: (data: { name: string; unit?: string; description?: string }) =>
+  create: (data: { name: string; unit?: string; description?: string; cost?: number; currencyId?: string; type?: string }) =>
     request('/items', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: { code: string; name: string; unit: string; description?: string }) =>
+  update: (id: string, data: { code: string; name: string; unit: string; description?: string; cost?: number; currencyId?: string; type?: string }) =>
     request(`/items/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) =>
     request(`/items/${id}`, { method: 'DELETE' }),
@@ -92,6 +92,31 @@ export const goodsMovesApi = {
     request('/goods-moves', { method: 'POST', body: JSON.stringify(data) }),
   delete: (id: string) =>
     request(`/goods-moves/${id}`, { method: 'DELETE' }),
+};
+
+// --- Units ---
+export const unitsApi = {
+  list: () => request<any[]>('/units'),
+  create: (data: { code: string; name: string }) =>
+    request('/units', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { code: string; name: string }) =>
+    request(`/units/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request(`/units/${id}`, { method: 'DELETE' }),
+};
+
+// --- Audit Logs ---
+export const auditApi = {
+  list: (params: { userId?: string; resource?: string; action?: string; skip?: number; take?: number } = {}) => {
+    const search = new URLSearchParams();
+    if (params.userId) search.set('userId', params.userId);
+    if (params.resource) search.set('resource', params.resource);
+    if (params.action) search.set('action', params.action);
+    if (params.skip !== undefined) search.set('skip', String(params.skip));
+    if (params.take !== undefined) search.set('take', String(params.take));
+    const qs = search.toString();
+    return request<{ total: number; records: any[] }>(`/audit${qs ? `?${qs}` : ''}`);
+  },
 };
 
 // --- Finance ---

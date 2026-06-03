@@ -8,18 +8,19 @@ import { GoodsMovements } from './pages/GoodsMovements';
 import { FinanceARAP } from './pages/FinanceARAP';
 import { SalesManagement } from './pages/SalesManagement';
 import { ProcurementManagement } from './pages/ProcurementManagement';
-import { AssemblyManagement } from './pages/AssemblyManagement';
 import { useI18n } from './i18n/I18nContext';
 import { ToastMessage, UserPermission, ShowToast } from './types';
 import { authApi } from './services/api';
+import { UnitsSettingsCard } from './components/settings/UnitsSettingsCard';
 import { Users, Warehouse, Package,
   RefreshCw, CircleDollarSign, LogOut, Terminal,
   AlertTriangle, X,
   Languages,
   ShoppingCart,
   ShoppingBag,
-  Box,
-  Settings
+  Settings,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 function DashboardShell({
@@ -44,6 +45,17 @@ function DashboardShell({
   const [activeSettingTab, setActiveSettingTab] = useState<'permissions' | 'preferences'>(
     userPermission?.canAccessUsers ? 'permissions' : 'preferences'
   );
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('dalang_theme');
+    return saved === 'light' ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    document.body.classList.toggle('theme-light', theme === 'light');
+    document.body.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('dalang_theme', theme);
+  }, [theme]);
 
   // 根据权限过滤侧边栏菜单（排除了“权限与账号”，该功能现收纳于顶部“设置”弹窗中）
   const menuItems = [
@@ -64,12 +76,6 @@ function DashboardShell({
       label: t('goodsMenu'),
       icon: <RefreshCw size={16} />,
       allowed: userPermission?.canAccessGoods ?? false
-    },
-    {
-      path: '/assembly',
-      label: t('permissionAssembly'),
-      icon: <Box size={16} />,
-      allowed: userPermission?.canAccessAssembly ?? false
     },
     {
       path: '/procurement',
@@ -102,10 +108,13 @@ function DashboardShell({
     }
   }, [location, allowedMenuItems, navigate]);
 
+  const shellBg = theme === 'light' ? 'bg-[#f7f7f8] text-[#111]' : 'bg-[#09090b] text-neutral-100';
+  const headerBg = theme === 'light' ? 'bg-white/90 text-[#111]' : 'bg-[#121214]';
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#09090b] text-neutral-100">
+    <div className={`min-h-screen flex flex-col ${shellBg}`}>
       {/* 顶部导航栏 header */}
-      <header className="w-full bg-[#121214] sticky top-0 z-40 backdrop-blur-md bg-opacity-95">
+      <header className={`w-full ${headerBg} sticky top-0 z-40 backdrop-blur-md bg-opacity-95`}>
         <div className="max-w-[95%] mx-auto px-4 sm:px-6 md:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
           
           {/* 左侧：Logo & 操作员标识 */}
@@ -154,19 +163,28 @@ function DashboardShell({
 
           {/* 右侧：辅助操作区（系统配置、语言切换与注销） */}
           <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+            {/* 主题切换 */}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center justify-center gap-1 h-8 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              title={theme === 'dark' ? '切换到明亮' : '切换到暗色'}
+            >
+              {theme === 'dark' ? <Sun size={10} /> : <Moon size={10} />}
+            </button>
+
             {/* 系统设置 */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center gap-1 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center justify-center gap-1 h-8 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              title={t('settingsLabel')}
             >
               <Settings size={10} />
-              <span>{t('settingsLabel')}</span>
             </button>
 
             {/* 极简双语切换 */}
             <button
               onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center gap-1 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center justify-center gap-1 h-8 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
             >
               <Languages size={10} />
               <span>{t('navLanguageText')}</span>
@@ -175,7 +193,7 @@ function DashboardShell({
             {/* 退出系统 */}
             <button
               onClick={onLogout}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition-all active:scale-95"
+              className="flex items-center justify-center gap-1 px-3 py-1.5 h-8 rounded-full text-[9px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition-all active:scale-95"
               title={`${t('systemIdLabel')}: ${userId.substring(0, 8)}...`}
             >
               <span>{t('signOutOperator')}</span>
@@ -236,12 +254,6 @@ function DashboardShell({
             <Route
               path="/sales"
               element={<SalesManagement token={token} showToast={showToast} />}
-            />
-          )}
-          {userPermission?.canAccessAssembly && (
-            <Route
-              path="/assembly"
-              element={<AssemblyManagement token={token} showToast={showToast} />}
             />
           )}
           
@@ -344,14 +356,20 @@ function DashboardShell({
                     />
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto">
-                    <AlertTriangle className="text-neutral-600 mb-3 animate-pulse" size={24} />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
-                      常规配置正常生效中
-                    </span>
-                    <p className="text-[8px] text-neutral-500 font-mono mt-2 uppercase tracking-wide">
-                      Your local operator session is active. Preferred language is synced with UI settings.
-                    </p>
+                  <div className="flex flex-col gap-6 h-full">
+                    {/* 全局单位主数据管理 */}
+                    <UnitsSettingsCard showToast={showToast} />
+
+                    {/* 预留：其他常规偏好配置区 */}
+                    <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto opacity-70">
+                      <AlertTriangle className="text-neutral-600 mb-3 animate-pulse" size={24} />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                        常规配置正常生效中
+                      </span>
+                      <p className="text-[8px] text-neutral-500 font-mono mt-2 uppercase tracking-wide">
+                        Your local operator session is active. Preferred language is synced with UI settings.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
