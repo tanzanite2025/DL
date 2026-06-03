@@ -260,31 +260,31 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-solid border-white/10">
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
+                    <th className="text-[10px] font-black uppercase tracking-wider text-neutral-500 pb-3 pl-2 whitespace-pre-line leading-tight">
                       {t('roleNameColumn')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionUsers')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionWarehouse')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionProducts')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionGoods')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionFinance')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionSales')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionPurchase')}
                     </th>
-                    <th className="text-[9px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionAssembly')}
                     </th>
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">

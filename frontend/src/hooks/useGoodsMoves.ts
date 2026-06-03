@@ -26,5 +26,11 @@ export function useGoodsMoves() {
     return result;
   };
 
-  return { moves, isLoading, fetchMoves, createMove };
+  const deleteMove = async (id: string) => {
+    const result = await goodsMovesApi.delete(id);
+    await fetchMoves();
+    return result;
+  };
+
+  return { moves, isLoading, fetchMoves, createMove, deleteMove };
 }

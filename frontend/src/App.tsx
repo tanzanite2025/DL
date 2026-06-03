@@ -8,6 +8,7 @@ import { GoodsMovements } from './pages/GoodsMovements';
 import { FinanceARAP } from './pages/FinanceARAP';
 import { SalesManagement } from './pages/SalesManagement';
 import { ProcurementManagement } from './pages/ProcurementManagement';
+import { AssemblyManagement } from './pages/AssemblyManagement';
 import { useI18n } from './i18n/I18nContext';
 import { ToastMessage, UserPermission, ShowToast } from './types';
 import { authApi } from './services/api';
@@ -16,7 +17,9 @@ import { Users, Warehouse, Package,
   AlertTriangle, X,
   Languages,
   ShoppingCart,
-  ShoppingBag
+  ShoppingBag,
+  Box,
+  Settings
 } from 'lucide-react';
 
 function DashboardShell({
@@ -37,15 +40,13 @@ function DashboardShell({
   const { language, setLanguage, t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeSettingTab, setActiveSettingTab] = useState<'permissions' | 'preferences'>(
+    userPermission?.canAccessUsers ? 'permissions' : 'preferences'
+  );
 
-  // 根据权限过滤侧边栏菜单
+  // 根据权限过滤侧边栏菜单（排除了“权限与账号”，该功能现收纳于顶部“设置”弹窗中）
   const menuItems = [
-    {
-      path: '/permissions',
-      label: t('permissionsMenu'),
-      icon: <Users size={16} />,
-      allowed: userPermission?.canAccessUsers ?? false
-    },
     {
       path: '/products',
       label: t('productsMenu'),
@@ -63,6 +64,12 @@ function DashboardShell({
       label: t('goodsMenu'),
       icon: <RefreshCw size={16} />,
       allowed: userPermission?.canAccessGoods ?? false
+    },
+    {
+      path: '/assembly',
+      label: t('permissionAssembly'),
+      icon: <Box size={16} />,
+      allowed: userPermission?.canAccessAssembly ?? false
     },
     {
       path: '/procurement',
@@ -145,8 +152,17 @@ function DashboardShell({
             )}
           </nav>
 
-          {/* 右侧：辅助操作区（语言切换与注销） */}
+          {/* 右侧：辅助操作区（系统配置、语言切换与注销） */}
           <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+            {/* 系统设置 */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center gap-1 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+            >
+              <Settings size={10} />
+              <span>{t('settingsLabel')}</span>
+            </button>
+
             {/* 极简双语切换 */}
             <button
               onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
@@ -222,6 +238,12 @@ function DashboardShell({
               element={<SalesManagement token={token} showToast={showToast} />}
             />
           )}
+          {userPermission?.canAccessAssembly && (
+            <Route
+              path="/assembly"
+              element={<AssemblyManagement token={token} showToast={showToast} />}
+            />
+          )}
           
           {/* 降级捕获：如果用户尝试通过 URL 越权访问，展示大声报错页面 */}
           <Route
@@ -244,6 +266,99 @@ function DashboardShell({
           />
         </Routes>
       </main>
+
+      {/* UDS 统一设计系统 1.0 全局设置弹窗 */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative w-[80vw] max-w-[80vw] h-[85vh] bg-[#121214] rounded-[32px] overflow-hidden shadow-2xl flex flex-col animate-uds-fade">
+            {/* 顶部渐变 */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/3 via-transparent to-transparent pointer-events-none rounded-[32px]" />
+            
+            {/* 弹窗头部 */}
+            <div className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-white/5 shrink-0">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[16px] font-black tracking-tighter italic uppercase text-white">
+                  {t('settingsTitle')}
+                </h2>
+                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 opacity-60">
+                  System Settings & Console Configuration
+                </p>
+              </div>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-2 rounded-full hover:bg-white/5 transition-all"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* 弹窗主体 */}
+            <div className="relative z-10 flex-1 flex flex-col overflow-hidden">
+              {/* 弹窗内顶部水平 TAB 栏 */}
+              <div className="w-full border-b border-white/5 bg-black/20 px-8 py-3 flex items-center gap-4 shrink-0 overflow-x-auto scrollbar-none">
+                <span className="text-[8px] font-mono text-neutral-500 uppercase tracking-widest mr-2 shrink-0">
+                  Settings Menu:
+                </span>
+                <div className="flex items-center bg-black/40 p-1 rounded-full gap-1 select-none">
+                  {userPermission?.canAccessUsers && (
+                    <button 
+                      onClick={() => setActiveSettingTab('permissions')}
+                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full transition-all duration-200 cursor-pointer text-[10px] font-black uppercase tracking-widest shrink-0 ${
+                        activeSettingTab === 'permissions'
+                          ? 'bg-white text-black font-black'
+                          : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <Users size={10} />
+                      <span>{t('permissionsMenu')}</span>
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={() => {
+                      setActiveSettingTab('preferences');
+                      showToast('常规偏好设置已自动适配系统语言', 'success');
+                    }}
+                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full transition-all duration-200 cursor-pointer text-[10px] font-black uppercase tracking-widest shrink-0 ${
+                      activeSettingTab === 'preferences'
+                        ? 'bg-white text-black font-black'
+                        : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Settings size={10} />
+                    <span>常规偏好 (Preferences)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 弹窗下半部配置内容区 */}
+              <div className="flex-1 p-8 overflow-y-auto bg-[#09090b]/85">
+                {activeSettingTab === 'permissions' && userPermission?.canAccessUsers ? (
+                  <div className="flex flex-col gap-8 h-full">
+                    {/* 直接嵌入 UsersPermissions 组件 */}
+                    <UsersPermissions
+                      token={token}
+                      currentUserId={userId}
+                      showToast={showToast}
+                      onRefreshPermissions={onRefreshPermissions}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto">
+                    <AlertTriangle className="text-neutral-600 mb-3 animate-pulse" size={24} />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                      常规配置正常生效中
+                    </span>
+                    <p className="text-[8px] text-neutral-500 font-mono mt-2 uppercase tracking-wide">
+                      Your local operator session is active. Preferred language is synced with UI settings.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

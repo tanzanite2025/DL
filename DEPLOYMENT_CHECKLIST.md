@@ -68,12 +68,12 @@ npm run dev
 
 **预期输出**:
 ```
-Server is running on http://localhost:3001
+Server is running on http://localhost:5501
 种子数据初始化成功！（如果数据库为空）
 ```
 
 **验证**:
-- [ ] 服务器成功启动在 3001 端口
+- [ ] 服务器成功启动在 5501 端口
 - [ ] 没有报错信息
 - [ ] 控制台显示种子数据初始化（首次运行）
 
@@ -87,13 +87,13 @@ npm run dev
 **预期输出**:
 ```
 VITE ready in XXX ms
-Local: http://localhost:5173/
+Local: http://localhost:5500/
 ```
 
 **验证**:
-- [ ] 前端成功启动在 5173 端口
+- [ ] 前端成功启动在 5500 端口
 - [ ] 没有编译错误
-- [ ] 浏览器自动打开或手动访问 http://localhost:5173
+- [ ] 浏览器自动打开或手动访问 http://localhost:5500
 
 ---
 
@@ -300,16 +300,16 @@ npx prisma studio
 
 ```bash
 # 1. 登录获取 Token
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST http://localhost:5501/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"123456"}'
 
 # 2. 获取供应商列表（替换 YOUR_TOKEN）
-curl -X GET http://localhost:3001/api/suppliers \
+curl -X GET http://localhost:5501/api/suppliers \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # 3. 获取采购订单列表
-curl -X GET http://localhost:3001/api/purchase-orders \
+curl -X GET http://localhost:5501/api/purchase-orders \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 

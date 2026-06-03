@@ -90,6 +90,8 @@ export const goodsMovesApi = {
   list: () => request<any[]>('/goods-moves'),
   create: (data: any) =>
     request('/goods-moves', { method: 'POST', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request(`/goods-moves/${id}`, { method: 'DELETE' }),
 };
 
 // --- Finance ---

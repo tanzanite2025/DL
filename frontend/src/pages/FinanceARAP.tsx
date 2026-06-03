@@ -435,7 +435,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
                   />
                   <UdsInput
                     label={t('billDesc')}
-                    placeholder={t('remarksPlaceholder')}
+                    placeholder={t('billRemarksPlaceholder')}
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     disabled={isSubmitting}

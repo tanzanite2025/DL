@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '../components/uds/UdsComponents';
+import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
+import { PurchaseOrderForm } from '../components/uds/PurchaseOrderForm';
 import { useI18n } from '../i18n/I18nContext';
 import { Users, Trash2, Edit3, TruckIcon } from 'lucide-react';
 import { Supplier, PurchaseOrder, ShowToast } from '../types';
@@ -39,18 +41,16 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   const [orderExpectedDate, setOrderExpectedDate] = useState('');
   const [orderStatus, setOrderStatus] = useState<'DRAFT' | 'CONFIRMED' | 'RECEIVED' | 'CLOSED'>('DRAFT');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   // 收货表单状态
   const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
-  const [receiveQty, setReceiveQty] = useState('');
-  const [receiveWarehouseId, setReceiveWarehouseId] = useState('');
 
   // 数据加载后设置默认表单值
   React.useEffect(() => {
     if (suppliers.length > 0 && !orderSupplierId) setOrderSupplierId(suppliers[0].id);
     if (items.length > 0 && !orderItemId) setOrderItemId(items[0].id);
-    if (warehouses.length > 0 && !receiveWarehouseId) setReceiveWarehouseId(warehouses[0].id);
-  }, [suppliers, items, warehouses]);
+  }, [suppliers, items]);
 
   // ==================== 供应商管理函数 ====================
   const handleSaveSupplier = async (e: React.FormEvent) => {
@@ -120,6 +120,25 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   };
 
   // ==================== 采购订单管理函数 ====================
+  const handleBatchSaveOrders = async (ordersList: any[]) => {
+    try {
+      for (const item of ordersList) {
+        await createOrder({
+          supplierId: item.supplierId,
+          itemId: item.itemId,
+          qty: item.qty,
+          price: item.price,
+          status: 'DRAFT',
+          expectedDate: item.expectedDate || null,
+        });
+      }
+      showToast(t('poOrderCreatedSuccess') || '批量采购订单创建成功', 'success');
+      setIsOrderModalOpen(false);
+    } catch (error: any) {
+      showToast(error.message || t('errPurchaseFormRequired'), 'error');
+    }
+  };
+
   const handleSavePurchaseOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     const qtyInt = parseInt(orderQty);
@@ -152,7 +171,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
       }
 
       showToast(
-        editingOrderId ? t('orderUpdatedSuccess') : t('orderCreatedSuccess'),
+        editingOrderId ? t('poOrderUpdatedSuccess') : t('poOrderCreatedSuccess'),
         'success'
       );
       clearOrderForm();
@@ -182,52 +201,20 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   };
 
   const handleDeleteOrder = async (id: string) => {
-    if (!window.confirm(t('orderDeleteConfirm'))) {
+    if (!window.confirm(t('poOrderDeleteConfirm'))) {
       return;
     }
 
     try {
       await deleteOrder(id);
-      showToast(t('orderDeletedSuccess'), 'success');
+      showToast(t('poOrderDeletedSuccess'), 'success');
     } catch (error: any) {
-      showToast(error.message || t('orderDeletedSuccess'), 'error');
-    }
-  };
-
-  // ==================== 收货登记函数 ====================
-  const handleReceiveGoods = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!receivingOrderId) return;
-
-    const qtyInt = parseInt(receiveQty);
-    if (isNaN(qtyInt) || qtyInt <= 0) {
-      showToast(t('errReceiveQtyInvalid'), 'error');
-      return;
-    }
-
-    const order = purchaseOrders.find(o => o.id === receivingOrderId);
-    if (!order) return;
-
-    const remainingQty = order.qty - order.receivedQty;
-    if (qtyInt > remainingQty) {
-      showToast(t('errReceiveQtyInvalid'), 'error');
-      return;
-    }
-
-    try {
-      await receiveOrder(receivingOrderId, { receiveQty: qtyInt, warehouseId: receiveWarehouseId });
-      showToast(t('goodsReceivedSuccess'), 'success');
-      setReceivingOrderId(null);
-      setReceiveQty('');
-    } catch (error: any) {
-      showToast(error.message || t('goodsReceivedSuccess'), 'error');
+      showToast(error.message || t('poOrderDeletedSuccess'), 'error');
     }
   };
 
   const startReceiving = (order: PurchaseOrder) => {
     setReceivingOrderId(order.id);
-    const remainingQty = order.qty - order.receivedQty;
-    setReceiveQty(remainingQty.toString());
   };
 
   if (isLoading && suppliers.length === 0) {
@@ -347,19 +334,41 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                     key={supplier.id}
                     className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl border border-dashed border-white/5 bg-white/2"
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 flex-1">
                       <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center border border-dashed border-white/10 shrink-0 mt-1">
                         <Users size={14} className="text-neutral-300" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h4 className="text-sm font-semibold text-neutral-200">{supplier.name}</h4>
                         <p className="text-[10px] text-neutral-400 mt-0.5 font-mono">{supplier.code}</p>
-                        {supplier.contactPerson && (
-                          <p className="text-[9px] text-neutral-500 mt-1">{t('contactPerson')}: {supplier.contactPerson}</p>
-                        )}
-                        {supplier.phone && (
-                          <p className="text-[9px] text-neutral-500">{t('supplierPhone')}: {supplier.phone}</p>
-                        )}
+                        
+                        {/* 联系信息 */}
+                        <div className="mt-2 flex flex-col gap-1">
+                          {supplier.contactPerson && (
+                            <p className="text-[11px] text-neutral-400">
+                              <span className="text-neutral-500">👤 </span>
+                              {supplier.contactPerson}
+                            </p>
+                          )}
+                          {supplier.phone && (
+                            <p className="text-[11px] text-neutral-300 font-medium">
+                              <span className="text-neutral-500">📞 </span>
+                              {supplier.phone}
+                            </p>
+                          )}
+                          {supplier.email && (
+                            <p className="text-[11px] text-neutral-400 truncate">
+                              <span className="text-neutral-500">✉️ </span>
+                              {supplier.email}
+                            </p>
+                          )}
+                          {supplier.address && (
+                            <p className="text-[10px] text-neutral-500 line-clamp-2 mt-0.5">
+                              <span className="text-neutral-600">📍 </span>
+                              {supplier.address}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 self-end md:self-center">
@@ -392,10 +401,11 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
       ) : (
         // ==================== 采购订单 TAB ====================
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* 左侧：订单表单 */}
-          <div className="lg:col-span-5 flex flex-col gap-8">
-            <UdsCard
-              title={editingOrderId ? t('editPurchaseOrder') : t('createPurchaseOrder')}
+          {/* 左侧：如果是编辑模式则显示订单表单 */}
+          {editingOrderId && (
+            <div className="lg:col-span-5 flex flex-col gap-8">
+              <UdsCard
+                title={t('editPurchaseOrder')}
               action={
                 editingOrderId && (
                   <UdsButton variant="ghost" onClick={clearOrderForm} className="h-7 px-3">
@@ -465,68 +475,26 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                   </div>
                 </form>
               )}
-            </UdsCard>
-
-            {/* 收货登记卡片 */}
-            {receivingOrderId && (() => {
-              const order = purchaseOrders.find(o => o.id === receivingOrderId);
-              if (!order) return null;
-              const remainingQty = order.qty - order.receivedQty;
-              return (
-                <UdsCard
-                  title={t('receiveGoodsTitle')}
-                  action={
-                    <UdsButton variant="ghost" onClick={() => { setReceivingOrderId(null); setReceiveQty(''); }} className="h-7 px-3">
-                      {t('cancel')}
-                    </UdsButton>
-                  }
-                  className="border-neutral-500 bg-neutral-900/60"
-                >
-                  <form onSubmit={handleReceiveGoods} className="flex flex-col gap-4">
-                    <div className="text-[10px] text-neutral-400 font-mono flex flex-col gap-1.5 p-3 rounded-2xl bg-black/30 border border-dashed border-white/5 mb-2">
-                      <div>{t('orderNo')}: <span className="text-white font-bold">{order.orderNo}</span></div>
-                      <div>{t('selectSupplier')}: <span className="text-white font-bold">{order.supplier.name}</span></div>
-                      <div>{t('selectItem')}: <span className="text-white font-bold">{order.item.name}</span></div>
-                      <div>{t('purchaseQty')}: <span className="text-white font-bold">{order.qty} {order.item.unit}</span></div>
-                      <div>{t('receivedQty')}: <span className="text-emerald-500 font-bold">{order.receivedQty} {order.item.unit}</span></div>
-                      <div>{t('pendingQty')}: <span className="text-amber-500 font-bold">{remainingQty} {order.item.unit}</span></div>
-                    </div>
-                    {warehouses.length === 0 ? (
-                      <div className="p-4 rounded-xl border border-dashed border-rose-500/20 bg-rose-500/5 text-rose-500 text-[10px] font-bold uppercase tracking-wider text-center">
-                        {t('noWarehousesAvailable')}
-                      </div>
-                    ) : (
-                      <>
-                        <UdsInput
-                          label={t('receiveQtyLabel')}
-                          type="number"
-                          min="1"
-                          max={remainingQty}
-                          placeholder={`Max: ${remainingQty}`}
-                          value={receiveQty}
-                          onChange={(e) => setReceiveQty(e.target.value)}
-                          required
-                        />
-                        <UdsSelect
-                          label={t('targetWarehouse')}
-                          options={warehouses.map(w => ({ value: w.id, label: w.name }))}
-                          value={receiveWarehouseId}
-                          onChange={(e) => setReceiveWarehouseId(e.target.value)}
-                        />
-                        <UdsButton type="submit" variant="primary" className="w-full">
-                          {t('registerReceiving')}
-                        </UdsButton>
-                      </>
-                    )}
-                  </form>
-                </UdsCard>
-              );
-            })()}
-          </div>
+              </UdsCard>
+            </div>
+          )}
 
           {/* 右侧：采购订单列表 */}
-          <div className="lg:col-span-7">
-            <UdsCard title={t('purchaseOrderList')}>
+          <div className={editingOrderId ? "lg:col-span-7" : "lg:col-span-12"}>
+            <UdsCard
+              title={t('purchaseOrderList')}
+              action={
+                !editingOrderId && (
+                  <UdsButton
+                    variant="primary"
+                    className="h-9 px-4 text-[10px] font-black uppercase tracking-widest"
+                    onClick={() => setIsOrderModalOpen(true)}
+                  >
+                    {t('purchaseOrderTitle') || '新建采购订单'}
+                  </UdsButton>
+                )
+              }
+            >
               <div className="overflow-x-auto w-full">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -636,6 +604,68 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                 </table>
               </div>
             </UdsCard>
+          </div>
+        </div>
+      )}
+
+      {/* UDS 规范采购收货登记 Modal 弹窗 */}
+      {receivingOrderId && (() => {
+        const order = purchaseOrders.find(o => o.id === receivingOrderId);
+        if (!order) return null;
+        const remainingQty = order.qty - order.receivedQty;
+        return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="relative w-full max-w-lg animate-uds-fade">
+              <GoodsMovementForm
+                title={t('receiveGoodsTitle')}
+                showToast={showToast}
+                initialType="IN"
+                lockType={true}
+                initialItemId={order.itemId}
+                lockItem={true}
+                initialQty={remainingQty.toString()}
+                maxQty={remainingQty}
+                initialRemarks={`${t('orderNo')}: ${order.orderNo}`}
+                onSuccess={() => {
+                  setReceivingOrderId(null);
+                }}
+                onSubmit={async ({ qty, toWarehouseId }) => {
+                  if (!toWarehouseId) {
+                    throw new Error(t('errInboundNoToWh'));
+                  }
+                  await receiveOrder(order.id, { receiveQty: qty, warehouseId: toWarehouseId });
+                }}
+                action={
+                  <button
+                    onClick={() => setReceivingOrderId(null)}
+                    className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-1.5 rounded-full hover:bg-white/5 transition-all text-xs"
+                  >
+                    {t('cancel')}
+                  </button>
+                }
+              />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 新建采购订单 Modal 弹窗 */}
+      {isOrderModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="relative w-full w-[85vw] max-w-7xl h-[80vh] flex flex-col animate-uds-fade">
+            <PurchaseOrderForm
+              className="h-full flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
+              showToast={showToast}
+              onSuccess={handleBatchSaveOrders}
+              action={
+                <button
+                  onClick={() => setIsOrderModalOpen(false)}
+                  className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-1.5 rounded-full hover:bg-white/5 transition-all text-xs"
+                >
+                  {t('cancel') || '取消'}
+                </button>
+              }
+            />
           </div>
         </div>
       )}

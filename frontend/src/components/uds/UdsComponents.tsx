@@ -55,8 +55,8 @@ export const UdsCard: React.FC<CardProps> = ({ title, action, children, classNam
       {(title || action) && (
         <div className="relative z-10 flex items-center justify-between mb-4 border-b border-solid border-white/5 pb-3">
           {title && (
-            // 二级标题 (Card Title): text-sm + font-black + tracking-tighter + italic + uppercase
-            <h2 className="text-sm font-black tracking-tighter italic uppercase text-neutral-200">
+            // 二级标题 (Card Title): text-[15px] + font-black + tracking-tighter + italic + uppercase
+            <h2 className="text-[15px] font-black tracking-tighter italic uppercase text-neutral-200">
               {title}
             </h2>
           )}
@@ -114,8 +114,8 @@ export const UdsHeader: React.FC<HeaderProps> = ({ title, description, actions, 
     <div className={`relative flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 md:px-8 md:py-6 rounded-[32px] bg-[#1c1c1e]/20 ${className}`}>
       <div className="absolute inset-0 bg-gradient-to-br from-white/3 via-transparent to-transparent pointer-events-none rounded-[32px]" />
       <div className="relative z-10 flex flex-col gap-1.5">
-        {/* 一级标题 (Module Title): text-lg + font-black + tracking-tighter + italic + uppercase */}
-        <h1 className="text-lg font-black tracking-tighter italic uppercase text-white">
+        {/* 一级标题 (Module Title): text-[16px] + font-black + tracking-tighter + italic + uppercase */}
+        <h1 className="text-[16px] font-black tracking-tighter italic uppercase text-white">
           {title}
         </h1>
         {description && (

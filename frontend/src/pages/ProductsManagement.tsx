@@ -5,7 +5,7 @@ import { Package, Trash2, Edit3, Box } from 'lucide-react';
 import { Item, ShowToast } from '../types';
 import { useItems } from '../hooks/useItems';
 import { useWarehouses } from '../hooks/useWarehouses';
-import { assemblyApi, bomApi } from '../services/api';
+import { assemblyApi } from '../services/api';
 
 interface ProductsManagementProps {
   token: string;
@@ -154,7 +154,7 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
         assembledItemId: selectedItem.id,
         quantity: qty,
         warehouseId: selectedWarehouseId,
-      });
+      }) as { canAssemble: boolean; insufficient?: Array<{ componentId: string; need: number; available: number }> };
 
       if (!checkResult.canAssemble) {
         showToast(t('errStockInsufficient'), 'error');

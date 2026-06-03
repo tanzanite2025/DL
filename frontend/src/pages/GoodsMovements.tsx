@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '../components/uds/UdsComponents';
+import { UdsHeader, UdsCard, UdsButton, UdsBadge } from '../components/uds/UdsComponents';
+import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
 import { useI18n } from '../i18n/I18nContext';
 import { MoveRight, RefreshCw } from 'lucide-react';
 import { Item, Warehouse, GoodsMove, StockMatrixRow, ShowToast } from '../types';
@@ -16,18 +17,10 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
   const { t } = useI18n();
   const { items, isLoading: itemsLoading, fetchItems } = useItems();
   const { warehouses, isLoading: whLoading, fetchWarehouses } = useWarehouses();
-  const { moves, isLoading: movesLoading, fetchMoves, createMove } = useGoodsMoves();
+  const { moves, isLoading: movesLoading, fetchMoves, createMove, deleteMove } = useGoodsMoves();
   const [stockMatrix, setStockMatrix] = useState<StockMatrixRow[]>([]);
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const isLoading = itemsLoading || whLoading || movesLoading;
-
-  // 流转表单状态
-  const [formItemId, setFormItemId] = useState('');
-  const [formQty, setFormQty] = useState('');
-  const [formType, setFormType] = useState<'IN' | 'OUT' | 'TRANSFER'>('IN');
-  const [formFromWhId, setFormFromWhId] = useState('');
-  const [formToWhId, setFormToWhId] = useState('');
-  const [formRemarks, setFormRemarks] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 计算每个物料在各个仓库中的现有库存
   const calculateStockMatrix = (itemsList: Item[], whList: Warehouse[], movesList: GoodsMove[]) => {
@@ -75,11 +68,6 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
   React.useEffect(() => {
     if (!isLoading) {
       calculateStockMatrix(items, warehouses, moves);
-      if (items.length > 0 && !formItemId) setFormItemId(items[0].id);
-      if (warehouses.length > 0 && !formFromWhId) {
-        setFormFromWhId(warehouses[0].id);
-        setFormToWhId(warehouses[0].id);
-      }
     }
   }, [isLoading, items, warehouses, moves]);
 
@@ -87,65 +75,15 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
     await Promise.all([fetchItems(), fetchWarehouses(), fetchMoves()]);
   };
 
-  // 提交货物流转登记（采用乐观更新）
-  const handleRegisterMovement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const qtyInt = parseInt(formQty);
-
-    if (!formItemId || isNaN(qtyInt) || qtyInt <= 0) {
-      showToast(t('errMovementFormInvalid'), 'error');
-      return;
-    }
-
-    if (formType === 'OUT' && !formFromWhId) {
-      showToast(t('errOutboundNoFromWh'), 'error');
-      return;
-    }
-    if (formType === 'IN' && !formToWhId) {
-      showToast(t('errInboundNoToWh'), 'error');
-      return;
-    }
-    if (formType === 'TRANSFER' && (!formFromWhId || !formToWhId)) {
-      showToast(t('errTransferNoWh'), 'error');
-      return;
-    }
-    if (formType === 'TRANSFER' && formFromWhId === formToWhId) {
-      showToast(t('errTransferSameWh'), 'error');
-      return;
-    }
-
-    // 出库或调拨时的源仓库库存校验
-    if (formType === 'OUT' || formType === 'TRANSFER') {
-      const selectedItemRow = stockMatrix.find(r => {
-        const item = items.find(it => it.id === formItemId);
-        return item && r.itemCode === item.code;
-      });
-      const sourceQty = selectedItemRow?.warehouseStocks[formFromWhId] || 0;
-      if (sourceQty < qtyInt) {
-        showToast(`${t('errInsufficientStock')}: ${sourceQty}`, 'error');
-        return;
+  const handleDelete = async (id: string) => {
+    if (window.confirm(t('voidMovementConfirm') || '确定要作废并删除这条流转记录吗？作废后库存将自动重算恢复。')) {
+      try {
+        await deleteMove(id);
+        showToast(t('voidSuccess') || '流转记录已成功作废', 'success');
+        fetchData();
+      } catch (err: any) {
+        showToast(err.message || t('errVoidFailed') || '作废流转记录失败', 'error');
       }
-    }
-
-    setIsSubmitting(true);
-    const payload = {
-      itemId: formItemId,
-      qty: qtyInt,
-      type: formType,
-      fromWarehouseId: formType === 'IN' ? null : formFromWhId,
-      toWarehouseId: formType === 'OUT' ? null : formToWhId,
-      remarks: formRemarks,
-    };
-
-    try {
-      await createMove(payload);
-      showToast(t('movementSuccess'), 'success');
-      setFormQty('');
-      setFormRemarks('');
-    } catch (error: any) {
-      showToast(error.message || t('errMovementFailed'), 'error');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -227,92 +165,20 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
       </UdsCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* 左侧：流转登记表单 */}
-        <div className="lg:col-span-5">
-          <UdsCard title={t('registerMovement')}>
-            {items.length === 0 || warehouses.length === 0 ? (
-              <div className="p-4 rounded-xl border border-dashed border-rose-500/20 bg-rose-500/5 text-rose-500 text-[10px] font-bold uppercase tracking-wider text-center">
-                {t('noItemsOrWarehouses')}
-              </div>
-            ) : (
-              <form onSubmit={handleRegisterMovement} className="flex flex-col gap-4">
-                <UdsSelect
-                  label={t('movementItemSelect')}
-                  options={items.map((it) => ({ value: it.id, label: `[${it.code}] ${it.name} (${it.unit})` }))}
-                  value={formItemId}
-                  onChange={(e) => setFormItemId(e.target.value)}
-                  disabled={isSubmitting}
-                />
-
-                <UdsSelect
-                  label={t('movementType')}
-                  options={[
-                    { value: 'IN', label: t('inbound') },
-                    { value: 'OUT', label: t('outbound') },
-                    { value: 'TRANSFER', label: t('transfer') },
-                  ]}
-                  value={formType}
-                  onChange={(e) => {
-                    const type = e.target.value as 'IN' | 'OUT' | 'TRANSFER';
-                    setFormType(type);
-                  }}
-                  disabled={isSubmitting}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  {(formType === 'OUT' || formType === 'TRANSFER') && (
-                    <UdsSelect
-                      label={t('fromWh')}
-                      options={warehouses.map(w => ({ value: w.id, label: w.name }))}
-                      value={formFromWhId}
-                      onChange={(e) => setFormFromWhId(e.target.value)}
-                      disabled={isSubmitting}
-                    />
-                  )}
-
-                  {(formType === 'IN' || formType === 'TRANSFER') && (
-                    <UdsSelect
-                      label={t('toWh')}
-                      options={warehouses.map(w => ({ value: w.id, label: w.name }))}
-                      value={formToWhId}
-                      onChange={(e) => setFormToWhId(e.target.value)}
-                      disabled={isSubmitting}
-                    />
-                  )}
-                </div>
-
-                <UdsInput
-                  label={t('qty')}
-                  type="number"
-                  min="1"
-                  placeholder={t('qtyPlaceholder')}
-                  value={formQty}
-                  onChange={(e) => setFormQty(e.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-
-                <UdsInput
-                  label={t('remarks')}
-                  placeholder={t('remarksPlaceholder')}
-                  value={formRemarks}
-                  onChange={(e) => setFormRemarks(e.target.value)}
-                  disabled={isSubmitting}
-                />
-
-                <div className="border-t border-solid border-white/5 pt-4">
-                  <UdsButton type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? t('transacting') : t('confirmMovement')}
-                  </UdsButton>
-                </div>
-              </form>
-            )}
-          </UdsCard>
-        </div>
-
-        {/* 右侧：流转记录 */}
-        <div className="lg:col-span-7">
-          <UdsCard title={t('movementLedger')}>
+        {/* 全宽：流转记录 */}
+        <div className="lg:col-span-12">
+          <UdsCard
+            title={t('movementLedger')}
+            action={
+              <UdsButton
+                variant="primary"
+                className="h-9 px-4 text-[10px] font-black uppercase tracking-widest"
+                onClick={() => setIsMovementModalOpen(true)}
+              >
+                {t('registerMovement')}
+              </UdsButton>
+            }
+          >
             <div className="overflow-x-auto w-full">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -398,9 +264,17 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
                               {move.remarks}
                             </span>
                           )}
-                          <span className="text-[8px] font-mono text-neutral-600 mt-0.5">
-                            {t('op')}: {move.user?.username}
-                          </span>
+                          <div className="flex items-center gap-2 mt-1 justify-end">
+                            <span className="text-[8px] font-mono text-neutral-600">
+                              {t('op')}: {move.user?.username}
+                            </span>
+                            <button
+                              onClick={() => handleDelete(move.id)}
+                              className="text-[8px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded transition-colors"
+                            >
+                              {t('voidMovement') || '作废记录'}
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -418,6 +292,30 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
           </UdsCard>
         </div>
       </div>
+
+      {/* 登记货物流转 Modal 弹窗 */}
+      {isMovementModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="relative w-full w-[85vw] max-w-7xl h-[80vh] flex flex-col animate-uds-fade">
+            <GoodsMovementForm
+              className="h-full flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
+              showToast={showToast}
+              onSuccess={() => {
+                fetchData();
+                setIsMovementModalOpen(false);
+              }}
+              action={
+                <button
+                  onClick={() => setIsMovementModalOpen(false)}
+                  className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-1.5 rounded-full hover:bg-white/5 transition-all text-xs"
+                >
+                  {t('cancel')}
+                </button>
+              }
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

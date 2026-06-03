@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '../components/uds/UdsComponents';
+import { SalesOrderForm } from '../components/uds/SalesOrderForm';
 import { useI18n } from '../i18n/I18nContext';
 import { Trash2, Edit3, CircleDollarSign } from 'lucide-react';
 import { Customer, SalesOrder, ShowToast } from '../types';
@@ -34,6 +35,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
   const [orderPrice, setOrderPrice] = useState('');
   const [orderStatus, setOrderStatus] = useState<'DRAFT' | 'ACTIVE' | 'SHIPPED'>('DRAFT');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   // 数据加载后设置默认表单值
   React.useEffect(() => {
@@ -111,6 +113,24 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
   };
 
   // 2. 保存/更新销售订单
+  const handleBatchSaveOrders = async (ordersList: any[]) => {
+    try {
+      for (const item of ordersList) {
+        await createOrder({
+          customerId: item.customerId,
+          itemId: item.itemId,
+          qty: item.qty,
+          price: item.price,
+          status: item.status
+        });
+      }
+      showToast(t('orderCreatedSuccess') || '批量销售订单创建成功', 'success');
+      setIsOrderModalOpen(false);
+    } catch (error: any) {
+      showToast(error.message || '批量保存出错', 'error');
+    }
+  };
+
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderCustomerId || !orderItemId || !orderQty || !orderPrice) {
@@ -389,9 +409,10 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
           </>
         ) : (
           <>
-            {/* 销售订单：左侧表单 */}
-            <div className="lg:col-span-4 flex flex-col gap-8">
-              <UdsCard title={editingOrderId ? t('editProduct') : t('createSalesOrder')}>
+            {/* 销售订单：左侧表单仅在编辑时显示 */}
+            {editingOrderId && (
+              <div className="lg:col-span-4 flex flex-col gap-8">
+                <UdsCard title={t('editProduct') || '编辑销售订单'}>
                 <form onSubmit={handleSaveOrder} className="flex flex-col gap-5">
                   <UdsSelect
                     label={t('orderCustomerCol')}
@@ -442,9 +463,9 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
                   <UdsSelect
                     label={t('orderStatusCol')}
                     options={[
-                      { value: 'DRAFT', label: t('statusDraft') },
-                      { value: 'ACTIVE', label: t('statusActive') },
-                      { value: 'SHIPPED', label: t('statusShipped') }
+                      { value: 'DRAFT', label: t('salesStatusDraft') },
+                      { value: 'ACTIVE', label: t('salesStatusActive') },
+                      { value: 'SHIPPED', label: t('salesStatusShipped') }
                     ]}
                     value={orderStatus}
                     onChange={(e) => setOrderStatus(e.target.value as any)}
@@ -474,10 +495,24 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
                 </form>
               </UdsCard>
             </div>
+            )}
 
             {/* 销售订单：右侧表格总账 */}
-            <div className="lg:col-span-8">
-              <UdsCard title={t('salesOrderList')}>
+            <div className={editingOrderId ? "lg:col-span-8" : "lg:col-span-12"}>
+              <UdsCard
+                title={t('salesOrderList')}
+                action={
+                  !editingOrderId && (
+                    <UdsButton
+                      variant="primary"
+                      className="h-9 px-4 text-[10px] font-black uppercase tracking-widest"
+                      onClick={() => setIsOrderModalOpen(true)}
+                    >
+                      {t('salesOrderTitle') || '新建销售订单'}
+                    </UdsButton>
+                  )
+                }
+              >
                 {orders.length === 0 ? (
                   <p className="text-[10px] text-neutral-500 uppercase tracking-widest py-8 text-center">
                     {t('noSalesOrders')}
@@ -519,16 +554,16 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
                           let statusText = '';
                           if (o.status === 'DRAFT') {
                             badgeStatus = 'default';
-                            statusText = t('statusDraft');
+                            statusText = t('salesStatusDraft');
                           } else if (o.status === 'ACTIVE') {
                             badgeStatus = 'healthy';
-                            statusText = t('statusActive');
+                            statusText = t('salesStatusActive');
                           } else if (o.status === 'SHIPPED') {
                             badgeStatus = 'alert';
-                            statusText = t('statusShipped');
+                            statusText = t('salesStatusShipped');
                           } else if (o.status === 'CLOSED') {
                             badgeStatus = 'healthy'; // 结案状态
-                            statusText = t('statusClosed');
+                            statusText = t('salesStatusClosed');
                           }
 
                           return (
@@ -605,7 +640,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
 
                                   {o.status === 'CLOSED' && (
                                     <span className="text-[8px] font-mono font-bold text-neutral-600 uppercase tracking-widest px-2.5">
-                                      {t('statusClosed')}
+                                      {t('salesStatusClosed')}
                                     </span>
                                   )}
                                 </div>
@@ -622,6 +657,27 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
           </>
         )}
       </div>
+
+      {/* 新建销售订单 Modal 弹窗 */}
+      {isOrderModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="relative w-full w-[85vw] max-w-7xl h-[80vh] flex flex-col animate-uds-fade">
+            <SalesOrderForm
+              className="h-full flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
+              showToast={showToast}
+              onSuccess={handleBatchSaveOrders}
+              action={
+                <button
+                  onClick={() => setIsOrderModalOpen(false)}
+                  className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-1.5 rounded-full hover:bg-white/5 transition-all text-xs"
+                >
+                  {t('cancel') || '取消'}
+                </button>
+              }
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

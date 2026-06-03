@@ -6,11 +6,11 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5501;
 const JWT_SECRET = process.env.JWT_SECRET || 'dalang-erp-dev-secret-key-123456';
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5500',
   credentials: true,
 }));
 app.use(express.json());
@@ -687,6 +687,21 @@ app.post('/api/goods-moves', authenticateToken, requirePermission('canAccessGood
     return res.status(500).json({ error: '[CRITICAL] 执行货物流转登记失败。' });
   }
 });
+
+app.delete('/api/goods-moves/:id', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    const move = await prisma.goodsMove.findUnique({ where: { id } });
+    if (!move) {
+      return res.status(404).json({ error: '[CRITICAL] 未找到对应流转记录。' });
+    }
+    await prisma.goodsMove.delete({ where: { id } });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: '[CRITICAL] 删除流转记录失败。' });
+  }
+});
+
 
 // ---------------------- 应收应付账款 API ----------------------
 app.get('/api/finance', authenticateToken, requirePermission('canAccessFinance'), async (req: AuthenticatedRequest, res: Response) => {
