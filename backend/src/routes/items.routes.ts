@@ -1,10 +1,86 @@
-// ==================== BOM 组装功能 API ====================
-// 将这段代码复制到 server.ts 中 app.listen 之前
+import { Router, Response } from 'express';
+import { prisma } from '../lib/prisma.js';
+import { authenticateToken, requirePermission, AuthenticatedRequest } from '../middlewares/auth.js';
+
+const router = Router();
+
+// ---------------------- 物料主数据 ----------------------
+router.get('/items', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const items = await prisma.item.findMany({
+      orderBy: { code: 'asc' },
+    });
+    return res.json(items);
+  } catch (error) {
+    return res.status(500).json({ error: '[CRITICAL] 无法拉取物料编码列表。' });
+  }
+});
+
+router.post('/items', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
+  const { name, unit, description } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: '[CRITICAL] 物料名称不可为空。' });
+  }
+  try {
+    const items = await prisma.item.findMany({
+      select: { code: true }
+    });
+
+    let nextNum = 1;
+    const regex = /^ITEM-(\d+)$/;
+    items.forEach(it => {
+      const match = it.code.match(regex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num >= nextNum) {
+          nextNum = num + 1;
+        }
+      }
+    });
+
+    const paddedNum = String(nextNum).padStart(3, '0');
+    const generatedCode = `ITEM-${paddedNum}`;
+
+    const newItem = await prisma.item.create({
+      data: {
+        code: generatedCode,
+        name,
+        unit: unit || '件',
+        description
+      },
+    });
+    return res.json(newItem);
+  } catch (error) {
+    return res.status(500).json({ error: '[CRITICAL] 自动生成编码并创建产品失败。' });
+  }
+});
+
+router.put('/items/:id', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { code, name, unit, description } = req.body;
+  try {
+    const updated = await prisma.item.update({
+      where: { id },
+      data: { code, name, unit, description }
+    });
+    return res.json(updated);
+  } catch (error) {
+    return res.status(500).json({ error: '[CRITICAL] 更新物料失败。' });
+  }
+});
+
+router.delete('/items/:id', authenticateToken, requirePermission('canAccessGoods'), async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  try {
+    await prisma.item.delete({ where: { id } });
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: '[CRITICAL] 该物料已有关联流转记录，无法删除。' });
+  }
+});
 
 // ---------------------- BOM 配置 API ----------------------
-
-// 获取所有已配置 BOM 的成品列表
-app.get('/api/bom', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/bom', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const items = await prisma.item.findMany({
       where: {
@@ -29,8 +105,7 @@ app.get('/api/bom', authenticateToken, requirePermission('canAccessAssembly'), a
   }
 });
 
-// 获取指定成品的 BOM 清单
-app.get('/api/bom/:itemId', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/bom/:itemId', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   const { itemId } = req.params;
   try {
     const bom = await prisma.bomComponent.findMany({
@@ -47,8 +122,7 @@ app.get('/api/bom/:itemId', authenticateToken, requirePermission('canAccessAssem
   }
 });
 
-// 创建/更新 BOM 配置（批量保存）
-app.post('/api/bom', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/bom', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   const { parentItemId, components } = req.body;
   
   if (!parentItemId || !Array.isArray(components)) {
@@ -56,7 +130,6 @@ app.post('/api/bom', authenticateToken, requirePermission('canAccessAssembly'), 
   }
 
   try {
-    // 验证成品存在且类型为 PRODUCT
     const parentItem = await prisma.item.findUnique({ where: { id: parentItemId } });
     if (!parentItem) {
       return res.status(404).json({ error: '[CRITICAL] 成品不存在。' });
@@ -65,12 +138,10 @@ app.post('/api/bom', authenticateToken, requirePermission('canAccessAssembly'), 
       return res.status(400).json({ error: '[CRITICAL] 只能为成品类型的物料配置 BOM。' });
     }
 
-    // 删除旧的 BOM 配置
     await prisma.bomComponent.deleteMany({
       where: { parentItemId }
     });
 
-    // 创建新的 BOM 配置
     if (components.length > 0) {
       await prisma.bomComponent.createMany({
         data: components.map((c: any) => ({
@@ -82,7 +153,6 @@ app.post('/api/bom', authenticateToken, requirePermission('canAccessAssembly'), 
       });
     }
 
-    // 返回更新后的 BOM
     const newBom = await prisma.bomComponent.findMany({
       where: { parentItemId },
       include: {
@@ -97,8 +167,7 @@ app.post('/api/bom', authenticateToken, requirePermission('canAccessAssembly'), 
   }
 });
 
-// 删除 BOM 中的某个零件
-app.delete('/api/bom/:parentId/:componentId', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/bom/:parentId/:componentId', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   const { parentId, componentId } = req.params;
   try {
     await prisma.bomComponent.delete({
@@ -117,9 +186,7 @@ app.delete('/api/bom/:parentId/:componentId', authenticateToken, requirePermissi
 });
 
 // ---------------------- 组装操作 API ----------------------
-
-// 检查库存是否可以组装
-app.post('/api/assembly/check', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/assembly/check', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   const { assembledItemId, quantity, warehouseId } = req.body;
 
   if (!assembledItemId || !quantity || !warehouseId) {
@@ -127,7 +194,6 @@ app.post('/api/assembly/check', authenticateToken, requirePermission('canAccessA
   }
 
   try {
-    // 获取 BOM 清单
     const bom = await prisma.bomComponent.findMany({
       where: { parentItemId: assembledItemId },
       include: {
@@ -139,12 +205,10 @@ app.post('/api/assembly/check', authenticateToken, requirePermission('canAccessA
       return res.status(400).json({ error: '[CRITICAL] 该成品未配置 BOM 清单，无法组装。' });
     }
 
-    // 检查每个零件的库存
     const stockCheck = [];
     for (const component of bom) {
       const requiredQty = component.quantity * parseInt(quantity);
       
-      // 计算仓库中该零件的库存
       const moves = await prisma.goodsMove.findMany({
         where: {
           itemId: component.componentItemId,
@@ -181,8 +245,7 @@ app.post('/api/assembly/check', authenticateToken, requirePermission('canAccessA
   }
 });
 
-// 执行组装操作
-app.post('/api/assembly/assemble', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/assembly/assemble', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   const { assembledItemId, quantity, warehouseId, remarks } = req.body;
   const userId = req.user?.id;
 
@@ -191,7 +254,6 @@ app.post('/api/assembly/assemble', authenticateToken, requirePermission('canAcce
   }
 
   try {
-    // 获取 BOM 清单
     const bom = await prisma.bomComponent.findMany({
       where: { parentItemId: assembledItemId },
       include: {
@@ -203,7 +265,7 @@ app.post('/api/assembly/assemble', authenticateToken, requirePermission('canAcce
       return res.status(400).json({ error: '[CRITICAL] 该成品未配置 BOM 清单，无法组装。' });
     }
 
-    // 再次检查库存（防止并发问题）
+    // 库存预检
     for (const component of bom) {
       const requiredQty = component.quantity * parseInt(quantity);
       const moves = await prisma.goodsMove.findMany({
@@ -229,15 +291,12 @@ app.post('/api/assembly/assemble', authenticateToken, requirePermission('canAcce
       }
     }
 
-    // 计算总成本
     let totalCost = 0;
     for (const component of bom) {
       totalCost += component.componentItem.cost * component.quantity * parseInt(quantity);
     }
 
-    // 在事务中执行组装操作
     const result = await prisma.$transaction(async (tx) => {
-      // 1. 创建零件出库流转记录
       const componentMoves = [];
       for (const component of bom) {
         const move = await tx.goodsMove.create({
@@ -256,7 +315,6 @@ app.post('/api/assembly/assemble', authenticateToken, requirePermission('canAcce
         componentMoves.push(move);
       }
 
-      // 2. 创建成品入库流转记录
       const productMove = await tx.goodsMove.create({
         data: {
           itemId: assembledItemId,
@@ -271,7 +329,6 @@ app.post('/api/assembly/assemble', authenticateToken, requirePermission('canAcce
         }
       });
 
-      // 3. 创建组装日志
       const assemblyLog = await tx.assemblyLog.create({
         data: {
           type: 'ASSEMBLE',
@@ -299,8 +356,7 @@ app.post('/api/assembly/assemble', authenticateToken, requirePermission('canAcce
   }
 });
 
-// 执行拆解操作
-app.post('/api/assembly/disassemble', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/assembly/disassemble', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   const { assembledItemId, quantity, warehouseId, remarks } = req.body;
   const userId = req.user?.id;
 
@@ -309,7 +365,6 @@ app.post('/api/assembly/disassemble', authenticateToken, requirePermission('canA
   }
 
   try {
-    // 获取 BOM 清单
     const bom = await prisma.bomComponent.findMany({
       where: { parentItemId: assembledItemId },
       include: {
@@ -321,7 +376,6 @@ app.post('/api/assembly/disassemble', authenticateToken, requirePermission('canA
       return res.status(400).json({ error: '[CRITICAL] 该成品未配置 BOM 清单，无法拆解。' });
     }
 
-    // 检查成品库存
     const moves = await prisma.goodsMove.findMany({
       where: {
         itemId: assembledItemId,
@@ -344,15 +398,12 @@ app.post('/api/assembly/disassemble', authenticateToken, requirePermission('canA
       });
     }
 
-    // 计算成本（拆解时记录负成本）
     let totalCost = 0;
     for (const component of bom) {
       totalCost += component.componentItem.cost * component.quantity * parseInt(quantity);
     }
 
-    // 在事务中执行拆解操作
     const result = await prisma.$transaction(async (tx) => {
-      // 1. 创建成品出库流转记录
       const productMove = await tx.goodsMove.create({
         data: {
           itemId: assembledItemId,
@@ -367,7 +418,6 @@ app.post('/api/assembly/disassemble', authenticateToken, requirePermission('canA
         }
       });
 
-      // 2. 创建零件入库流转记录
       const componentMoves = [];
       for (const component of bom) {
         const move = await tx.goodsMove.create({
@@ -386,13 +436,12 @@ app.post('/api/assembly/disassemble', authenticateToken, requirePermission('canA
         componentMoves.push(move);
       }
 
-      // 3. 创建拆解日志
       const assemblyLog = await tx.assemblyLog.create({
         data: {
           type: 'DISASSEMBLE',
           assembledItemId,
           quantity: parseInt(quantity),
-          totalCost: -totalCost, // 拆解记录负成本
+          totalCost: -totalCost,
           warehouseId,
           userId,
           remarks
@@ -414,8 +463,7 @@ app.post('/api/assembly/disassemble', authenticateToken, requirePermission('canA
   }
 });
 
-// 获取组装历史记录
-app.get('/api/assembly/logs', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/assembly/logs', authenticateToken, requirePermission('canAccessAssembly'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const logs = await prisma.assemblyLog.findMany({
       include: {
@@ -424,7 +472,7 @@ app.get('/api/assembly/logs', authenticateToken, requirePermission('canAccessAss
         user: { select: { username: true } }
       },
       orderBy: { createdAt: 'desc' },
-      take: 100 // 最近 100 条记录
+      take: 100
     });
     return res.json(logs);
   } catch (error) {
@@ -432,3 +480,5 @@ app.get('/api/assembly/logs', authenticateToken, requirePermission('canAccessAss
     return res.status(500).json({ error: '[CRITICAL] 获取组装历史失败。' });
   }
 });
+
+export default router;
