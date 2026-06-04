@@ -202,108 +202,121 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
         description={t('authMatrixDesc')}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* 左侧：账号管理与新增 */}
-        <div className="lg:col-span-5 flex flex-col gap-8">
+      <div className="grid grid-cols-1 gap-8 items-start">
+        {/* 账号管理与新增 */}
+        <div className="flex flex-col gap-8">
           <UdsCard title={t('operatorManagement')}>
-            <div className="overflow-x-auto w-full mb-6">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-solid border-white/10">
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
-                      {t('operatorColumn')}
-                    </th>
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
-                      {t('roleConfigColumn')}
-                    </th>
-                    <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
-                      {t('actionsColumn')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr
-                      key={user.id}
-                      className="border-b border-solid border-white/5 hover:bg-white/2 transition-all"
-                    >
-                      <td className="py-3.5 pl-2">
-                        <div className="flex items-center gap-2">
-                          <UserIcon size={14} className="text-neutral-400" />
-                          <span className="text-sm font-semibold text-neutral-200">{user.username}</span>
-                          {user.id === currentUserId && (
-                            <UdsBadge status="healthy">{t('you')}</UdsBadge>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        <div className="relative">
-                          <select
-                            className="h-9 w-full pl-3 pr-8 rounded-2xl border-none bg-[#1c1c1e]/50 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer appearance-none"
-                            value={user.roleId}
-                            onChange={(e) => handleUpdateUserRole(user.id, e.target.value)}
-                          >
-                            {roles.map((r) => (
-                              <option key={r.id} value={r.id} className="bg-[#121214] text-white">
-                                {r.name}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
-                        </div>
-                      </td>
-                      <td className="py-3 text-right pr-2">
-                        <UdsButton
-                          variant="ghost"
-                          className="h-8 w-8 !p-0 rounded-full text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 border-none"
-                          onClick={() => handleDeleteUser(user.id)}
-                          disabled={user.id === currentUserId}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+              {/* 左侧：账号列表，占据更多宽度 */}
+              <div className="xl:col-span-2">
+                <div className="overflow-x-auto w-full mb-2 xl:mb-0">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-solid border-white/10">
+                        <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
+                          {t('operatorColumn')}
+                        </th>
+                        <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
+                          {t('roleConfigColumn')}
+                        </th>
+                        <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
+                          {t('actionsColumn')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((user) => (
+                        <tr
+                          key={user.id}
+                          className="border-b border-solid border-white/5 hover:bg-white/2 transition-all"
                         >
-                          <Trash2 size={12} />
-                        </UdsButton>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <td className="py-3.5 pl-2">
+                            <div className="flex items-center gap-2">
+                              <UserIcon size={14} className="text-neutral-400" />
+                              <span className="text-sm font-semibold text-neutral-200">{user.username}</span>
+                              {user.id === currentUserId && (
+                                <UdsBadge status="healthy">{t('you')}</UdsBadge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3">
+                            <div className="relative">
+                              <select
+                                className="h-9 w-full pl-3 pr-8 rounded-2xl border-none bg-[#1c1c1e]/50 text-sm text-white focus:outline-none focus:ring-1 focus:ring-neutral-700 transition-all cursor-pointer appearance-none"
+                                value={user.roleId}
+                                onChange={(e) => handleUpdateUserRole(user.id, e.target.value)}
+                              >
+                                {roles.map((r) => (
+                                  <option key={r.id} value={r.id} className="bg-[#121214] text-white">
+                                    {r.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" />
+                            </div>
+                          </td>
+                          <td className="py-3 text-right pr-2">
+                            <UdsButton
+                              variant="ghost"
+                              className="h-8 w-8 !p-0 rounded-full text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 border-none"
+                              onClick={() => handleDeleteUser(user.id)}
+                              disabled={user.id === currentUserId}
+                            >
+                              <Trash2 size={12} />
+                            </UdsButton>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-            {/* 创建新账号 */}
-            <form onSubmit={handleCreateUser} className="border-t border-solid border-white/10 pt-6 flex flex-col gap-4">
-              <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
-                {t('createNewAccount')}
-              </span>
-              <div className="grid grid-cols-2 gap-4">
-                <UdsInput
-                  placeholder={t('usernamePlaceholder')}
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  required
-                />
-                <UdsInput
-                  type="password"
-                  placeholder={t('passwordPlaceholder2')}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
+              {/* 右侧：创建新账号表单 */}
+              <div className="border-t xl:border-t-0 xl:border-l border-solid border-white/10 pt-4 xl:pt-0 xl:pl-4">
+                <form onSubmit={handleCreateUser} className="flex flex-col gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                    {t('createNewAccount')}
+                  </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-3 items-end">
+                    <div>
+                      <UdsInput
+                        placeholder={t('usernamePlaceholder')}
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <UdsInput
+                        type="password"
+                        placeholder={t('passwordPlaceholder2')}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <UdsSelect
+                        options={roles.map(r => ({ value: r.id, label: r.name }))}
+                        value={newUserRoleId}
+                        onChange={(e) => setNewUserRoleId(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex md:justify-end">
+                      <UdsButton type="submit" variant="secondary" className="w-full md:w-auto whitespace-nowrap shrink-0">
+                        <Plus size={12} className="mr-1" /> {t('createButton')}
+                      </UdsButton>
+                    </div>
+                  </div>
+                </form>
               </div>
-              <div className="flex gap-4 items-end">
-                <UdsSelect
-                  options={roles.map(r => ({ value: r.id, label: r.name }))}
-                  value={newUserRoleId}
-                  onChange={(e) => setNewUserRoleId(e.target.value)}
-                />
-                <UdsButton type="submit" variant="secondary" className="whitespace-nowrap shrink-0">
-                  <Plus size={12} className="mr-1" /> {t('createButton')}
-                </UdsButton>
-              </div>
-            </form>
+            </div>
           </UdsCard>
         </div>
 
-        {/* 右侧：权限矩阵配置 */}
-        <div className="lg:col-span-7 flex flex-col gap-8">
+        {/* 角色页面权限矩阵 */}
+        <div className="flex flex-col gap-8">
           <UdsCard title={t('rolePermissionMatrix')}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
               <p className="text-[10px] text-neutral-500 uppercase tracking-wide">

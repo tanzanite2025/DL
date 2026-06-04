@@ -148,6 +148,28 @@ async function seedDatabase() {
 
       console.log('种子数据初始化成功！');
     }
+
+    // 额外：为计量单位提供基础种子数据（不影响货币）
+    const prismaAny = prisma as any;
+    const defaultUnits = [
+      { code: 'PCS', name: '件' },
+      { code: 'BOX', name: '箱' },
+      { code: 'SET', name: '套' },
+      { code: 'KG', name: '千克' },
+    ];
+
+    let createdUnits = 0;
+    for (const u of defaultUnits) {
+      const exists = await prismaAny.unit.findFirst({ where: { code: u.code } });
+      if (!exists) {
+        await prismaAny.unit.create({ data: u });
+        createdUnits++;
+      }
+    }
+
+    if (createdUnits > 0) {
+      console.log(`已初始化 ${createdUnits} 条基础计量单位种子数据。`);
+    }
   } catch (error) {
     console.error('[CRITICAL] 种子数据初始化失败：', error);
   }

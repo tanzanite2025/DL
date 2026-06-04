@@ -307,7 +307,7 @@ function DashboardShell({
       {/* UDS 统一设计系统 1.0 全局设置弹窗 */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="relative w-[80vw] max-w-[80vw] h-[85vh] bg-[#121214] rounded-[32px] overflow-hidden shadow-2xl flex flex-col animate-uds-fade">
+          <div className="relative w-[90vw] max-w-[90vw] h-[85vh] bg-[#121214] rounded-[32px] overflow-hidden shadow-2xl flex flex-col animate-uds-fade">
             {/* 顶部渐变 */}
             <div className="absolute inset-0 bg-gradient-to-br from-white/3 via-transparent to-transparent pointer-events-none rounded-[32px]" />
             
