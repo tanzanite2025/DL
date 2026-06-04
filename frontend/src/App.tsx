@@ -10,9 +10,10 @@ import { SalesManagement } from './pages/SalesManagement';
 import { AfterSalesManagement } from './pages/AfterSalesManagement';
 import { ProcurementManagement } from './pages/ProcurementManagement';
 import { useI18n } from './i18n/I18nContext';
-import { ToastMessage, UserPermission, ShowToast } from './types';
+import { ToastMessage, UserPermission, ShowToast, GlobalSearchResult } from './types';
 import { authApi } from './services/api';
 import { UnitsSettingsCard } from './components/settings/UnitsSettingsCard';
+import { searchApi } from './services/api';
 import { Users, Warehouse, Package,
   RefreshCw, CircleDollarSign, LogOut, Terminal,
   AlertTriangle, X,
@@ -21,7 +22,8 @@ import { Users, Warehouse, Package,
   ShoppingBag,
   Settings,
   Sun,
-  Moon
+  Moon,
+  User
 } from 'lucide-react';
 
 function DashboardShell({
@@ -118,26 +120,39 @@ function DashboardShell({
   const shellBg = theme === 'light' ? 'bg-[#f7f7f8] text-[#111]' : 'bg-[#09090b] text-neutral-100';
   const headerBg = theme === 'light' ? 'bg-white/90 text-[#111]' : 'bg-[#121214]';
 
+  // 全局搜索状态
+  const [globalSearchKeyword, setGlobalSearchKeyword] = useState('');
+  const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResult | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleGlobalSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const q = globalSearchKeyword.trim();
+    if (!q) {
+      setGlobalSearchResult(null);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await searchApi.globalSearch(q);
+      setGlobalSearchResult(res);
+    } catch (error: any) {
+      showToast(error.message || '全局搜索失败', 'error');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   return (
     <div className={`min-h-screen flex flex-col ${shellBg}`}>
       {/* 顶部导航栏 header */}
       <header className={`w-full ${headerBg} sticky top-0 z-40 backdrop-blur-md bg-opacity-95`}>
         <div className="max-w-[95%] mx-auto px-4 sm:px-6 md:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
           
-          {/* 左侧：Logo & 操作员标识 */}
-          <div className="flex items-center justify-between w-full md:w-auto gap-4 shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shrink-0">
-                <span className="text-black font-black italic text-xs tracking-tighter">DL</span>
-              </div>
-            </div>
-            
-            {/* 顶栏操作员标识胶囊 */}
-            <div className="flex items-center gap-2 bg-[#1c1c1e]/40 px-3 py-1 rounded-full text-[10px] font-semibold text-neutral-300">
-              <span className="hidden xs:inline text-neutral-400 font-mono text-[8px] tracking-wider mr-1">{t('currentOperator')}:</span>
-              <span className="font-bold">{userPermission?.username || '---'}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-              <span className="text-[8px] font-mono text-neutral-500">[{userPermission?.roleName || '---'}]</span>
+          {/* 左侧：Logo */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+              <span className="text-black font-black italic text-sm tracking-tighter">DL</span>
             </div>
           </div>
 
@@ -170,41 +185,51 @@ function DashboardShell({
 
           {/* 右侧：辅助操作区（系统配置、语言切换与注销） */}
           <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+            {/* 操作员信息 */}
+            <button
+              className="text-[10px] font-black tracking-wider text-neutral-400 hover:text-white px-4 py-2 rounded-full flex items-center justify-center gap-1.5 h-10 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              title={`${t('currentOperator')}: ${userPermission?.username || '---'} (${userPermission?.roleName || '---'})`}
+            >
+              <User size={12} />
+              <span className="hidden sm:inline">{userPermission?.username || '---'}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            </button>
+
             {/* 主题切换 */}
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center justify-center gap-1 h-8 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              className="text-[10px] font-black tracking-wider text-neutral-400 hover:text-white px-4 py-2 rounded-full flex items-center justify-center gap-1.5 h-10 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
               title={theme === 'dark' ? '切换到明亮' : '切换到暗色'}
             >
-              {theme === 'dark' ? <Sun size={10} /> : <Moon size={10} />}
+              {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
             </button>
 
             {/* 系统设置 */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center justify-center gap-1 h-8 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              className="text-[10px] font-black tracking-wider text-neutral-400 hover:text-white px-4 py-2 rounded-full flex items-center justify-center gap-1.5 h-10 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
               title={t('settingsLabel')}
             >
-              <Settings size={10} />
+              <Settings size={12} />
             </button>
 
             {/* 极简双语切换 */}
             <button
               onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
-              className="text-[9px] font-black tracking-wider text-neutral-400 hover:text-white px-3 py-1.5 rounded-full flex items-center justify-center gap-1 h-8 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
+              className="text-[10px] font-black tracking-wider text-neutral-400 hover:text-white px-4 py-2 rounded-full flex items-center justify-center gap-1.5 h-10 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
             >
-              <Languages size={10} />
+              <Languages size={12} />
               <span>{t('navLanguageText')}</span>
             </button>
 
             {/* 退出系统 */}
             <button
               onClick={onLogout}
-              className="flex items-center justify-center gap-1 px-3 py-1.5 h-8 rounded-full text-[9px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition-all active:scale-95"
+              className="flex items-center justify-center gap-1.5 px-4 py-2 h-10 rounded-full text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition-all active:scale-95"
               title={`${t('systemIdLabel')}: ${userId.substring(0, 8)}...`}
             >
               <span>{t('signOutOperator')}</span>
-              <LogOut size={10} />
+              <LogOut size={12} />
             </button>
           </div>
           
@@ -212,7 +237,7 @@ function DashboardShell({
       </header>
 
       {/* 主工作区 - 最大宽度 95%，充分利用屏幕空间 */}
-      <main className="flex-1 w-full max-w-[95%] mx-auto px-4 sm:px-6 md:px-8 py-8 flex flex-col gap-8">
+      <main className="flex-1 w-full max-w-[95%] mx-auto px-4 sm:px-6 md:px-8 py-8 pb-24 flex flex-col gap-8">
         <Routes>
           {userPermission?.canAccessUsers && (
             <Route
@@ -303,6 +328,173 @@ function DashboardShell({
           />
         </Routes>
       </main>
+
+      {/* 全局底部搜索条 */}
+      <form
+        onSubmit={handleGlobalSearch}
+        className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-4xl"
+      >
+        <div className="rounded-full bg-black/70 border border-white/10 backdrop-blur-md px-4 py-2 flex items-center gap-3 shadow-lg">
+          <span className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 shrink-0">
+            Search
+          </span>
+          <input
+            value={globalSearchKeyword}
+            onChange={(e) => setGlobalSearchKeyword(e.target.value)}
+            placeholder="搜索 客户 / 产品 / 销售单号 / 采购单号 / 售后单号 / 仓库 ..."
+            className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-neutral-600 uds-search-input"
+          />
+          <button
+            type="submit"
+            disabled={isSearching}
+            className="text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full bg-white text-black hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+          >
+            {isSearching ? '搜索中...' : '搜索'}
+          </button>
+        </div>
+
+        {globalSearchResult && (
+          <div className="mt-2 rounded-3xl bg-black/85 border border-white/10 backdrop-blur-md px-4 py-3 max-h-72 overflow-y-auto text-xs text-neutral-100 space-y-2">
+            {globalSearchResult.customers.length > 0 && (
+              <div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                  客户
+                </div>
+                <div className="space-y-1">
+                  {globalSearchResult.customers.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => navigate('/sales')}
+                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                    >
+                      <span className="font-semibold mr-2">{c.name}</span>
+                      <span className="text-[10px] text-neutral-500">{c.code}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {globalSearchResult.items.length > 0 && (
+              <div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                  产品 / 物料
+                </div>
+                <div className="space-y-1">
+                  {globalSearchResult.items.map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => navigate('/products')}
+                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                    >
+                      <span className="font-semibold mr-2">{it.name}</span>
+                      <span className="text-[10px] text-neutral-500">{it.code}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {globalSearchResult.salesOrders.length > 0 && (
+              <div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                  销售订单
+                </div>
+                <div className="space-y-1">
+                  {globalSearchResult.salesOrders.map((so) => (
+                    <button
+                      key={so.id}
+                      type="button"
+                      onClick={() => navigate('/sales')}
+                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                    >
+                      <span className="font-semibold mr-2">{so.orderNo}</span>
+                      <span className="text-[10px] text-neutral-500">{so.customer?.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {globalSearchResult.purchaseOrders.length > 0 && (
+              <div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                  采购订单
+                </div>
+                <div className="space-y-1">
+                  {globalSearchResult.purchaseOrders.map((po) => (
+                    <button
+                      key={po.id}
+                      type="button"
+                      onClick={() => navigate('/procurement')}
+                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                    >
+                      <span className="font-semibold mr-2">{po.orderNo}</span>
+                      <span className="text-[10px] text-neutral-500">{po.supplier?.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {globalSearchResult.afterSalesCases.length > 0 && (
+              <div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                  售后记录
+                </div>
+                <div className="space-y-1">
+                  {globalSearchResult.afterSalesCases.map((ac) => (
+                    <button
+                      key={ac.id}
+                      type="button"
+                      onClick={() => navigate('/after-sales')}
+                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                    >
+                      <span className="font-semibold mr-2">{ac.customer?.name}</span>
+                      <span className="text-[10px] text-neutral-500">{ac.shipmentTrackingNumber}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {globalSearchResult.warehouses.length > 0 && (
+              <div>
+                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                  仓库
+                </div>
+                <div className="space-y-1">
+                  {globalSearchResult.warehouses.map((w) => (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => navigate('/warehouses')}
+                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                    >
+                      <span className="font-semibold mr-2">{w.name}</span>
+                      <span className="text-[10px] text-neutral-500">{w.location}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {globalSearchResult &&
+              globalSearchResult.customers.length === 0 &&
+              globalSearchResult.items.length === 0 &&
+              globalSearchResult.salesOrders.length === 0 &&
+              globalSearchResult.purchaseOrders.length === 0 &&
+              globalSearchResult.afterSalesCases.length === 0 &&
+              globalSearchResult.warehouses.length === 0 && (
+                <div className="text-[10px] text-neutral-500 text-center py-2">
+                  未找到相关记录
+                </div>
+              )}
+          </div>
+        )}
+      </form>
 
       {/* UDS 统一设计系统 1.0 全局设置弹窗 */}
       {isSettingsOpen && (

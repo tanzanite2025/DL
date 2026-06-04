@@ -48,8 +48,8 @@ router.post('/after-sales', authenticateToken, requirePermission('canAccessAfter
     status,
   } = req.body;
 
-  if (!receivedDate || !customerId || !itemId || !type || !warehouseId) {
-    return res.status(400).json({ error: '[CRITICAL] 售后单缺少必要字段（收到日期、客户、产品、类型、退回仓库）。' });
+  if (!customerId || !itemId || !type || !warehouseId) {
+    return res.status(400).json({ error: '[CRITICAL] 售后单缺少必要字段（客户、产品、类型、退回仓库）。' });
   }
 
   try {
@@ -63,7 +63,7 @@ router.post('/after-sales', authenticateToken, requirePermission('canAccessAfter
 
     const created = await prisma.afterSalesCase.create({
       data: {
-        receivedDate: new Date(receivedDate),
+        receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
         customerId,
         customerAddressSnapshot: customerAddressSnapshot ?? customer.address ?? null,
         itemId,

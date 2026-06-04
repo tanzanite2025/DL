@@ -9,7 +9,6 @@ interface AfterSalesCaseModalProps {
   items: Item[];
   initialCase: AfterSalesCase | null;
   onSubmit: (values: {
-    receivedDate: string;
     customerId: string;
     shipFromAddress: string;
     itemId: string;
@@ -36,7 +35,6 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
   showToast,
   warehouses,
 }) => {
-  const [receivedDate, setReceivedDate] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [shipFromAddress, setShipFromAddress] = useState('');
   const [itemId, setItemId] = useState('');
@@ -54,7 +52,6 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
     if (!isOpen) return;
 
     if (initialCase) {
-      setReceivedDate(initialCase.receivedDate.slice(0, 10));
       setCustomerId(initialCase.customerId);
       setShipFromAddress(initialCase.customerAddressSnapshot || '');
       setItemId(initialCase.itemId);
@@ -67,7 +64,6 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
       setNote(initialCase.note || '');
       setStatus(initialCase.status);
     } else {
-      setReceivedDate('');
       setCustomerId('');
       setShipFromAddress('');
       setItemId('');
@@ -86,15 +82,14 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!receivedDate || !customerId || !itemId || !warehouseId) {
-      showToast('收到日期 / 客户 / 产品 / 退回仓库 不能为空', 'error');
+    if (!customerId || !itemId || !warehouseId) {
+      showToast('客户 / 产品 / 退回仓库 不能为空', 'error');
       return;
     }
 
     setIsSubmitting(true);
     try {
       await onSubmit({
-        receivedDate,
         customerId,
         shipFromAddress,
         itemId,
@@ -123,12 +118,6 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
         <UdsCard title={title}>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <UdsInput
-                label="收到日期"
-                type="date"
-                value={receivedDate}
-                onChange={(e) => setReceivedDate(e.target.value)}
-              />
               <UdsInput
                 label="数量"
                 type="number"

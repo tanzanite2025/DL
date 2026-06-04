@@ -41,7 +41,6 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
   };
 
   const handleModalSubmit = async (values: {
-    receivedDate: string;
     customerId: string;
     shipFromAddress: string;
     itemId: string;
@@ -57,7 +56,6 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
     const parsedQty = parseInt(values.qty || '1', 10);
 
     const payload: any = {
-      receivedDate: values.receivedDate,
       customerId: values.customerId,
       itemId: values.itemId,
       type: values.type,
@@ -104,7 +102,7 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
             </UdsButton>
             <UdsButton
               variant="ghost"
-              className="h-8 px-3 text-[10px] font-black uppercase"
+              className="h-9 px-4 text-[10px] font-black uppercase"
               onClick={() => setIsAuditOpen(true)}
             >
               审计日志

@@ -20,8 +20,8 @@ export const UdsButton: React.FC<ButtonProps> = ({ variant = 'primary', children
     // 辅助按钮
     variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-[#1c1c1e] text-white border border-[#2c2c2e] hover:bg-neutral-800";
   } else if (variant === 'ghost') {
-    // 辅助/幽灵按钮：text-[10px] + font-black + uppercase
-    variantStyle = "rounded-full h-9 px-4 font-black text-[10px] uppercase tracking-widest bg-transparent text-neutral-400 border border-dashed border-neutral-800 hover:text-white hover:border-neutral-600";
+    // 辅助/幽灵按钮：与主按钮保持同高 (h-11 px-6)，仅通过边框与背景区分
+    variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-transparent text-neutral-400 border border-dashed border-neutral-800 hover:text-white hover:border-neutral-600";
   } else if (variant === 'critical') {
     variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20";
   }

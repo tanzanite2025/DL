@@ -241,6 +241,17 @@ export interface AfterSalesCase {
   updatedAt: string;
 }
 
+// 全局搜索结果聚合结构
+export interface GlobalSearchResult {
+  query: string;
+  customers: Customer[];
+  items: Item[];
+  salesOrders: SalesOrder[];
+  purchaseOrders: PurchaseOrder[];
+  afterSalesCases: AfterSalesCase[];
+  warehouses: Warehouse[];
+}
+
 // --- 通用 ---
 export interface ToastMessage {
   id: string;

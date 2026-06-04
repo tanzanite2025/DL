@@ -206,7 +206,7 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
         {/* 账号管理与新增 */}
         <div className="flex flex-col gap-8">
           <UdsCard title={t('operatorManagement')}>
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
               {/* 左侧：账号列表，占据更多宽度 */}
               <div className="xl:col-span-2">
                 <div className="overflow-x-auto w-full mb-2 xl:mb-0">
@@ -248,7 +248,7 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                               >
                                 {roles.map((r) => (
                                   <option key={r.id} value={r.id} className="bg-[#121214] text-white">
-                                    {r.name}
+                                    {`【角色】${r.name}`}
                                   </option>
                                 ))}
                               </select>
@@ -272,12 +272,21 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                 </div>
               </div>
 
-              {/* 右侧：创建新账号表单 */}
+              {/* 中间：创建新账号表单 */}
               <div className="border-t xl:border-t-0 xl:border-l border-solid border-white/10 pt-4 xl:pt-0 xl:pl-4">
                 <form onSubmit={handleCreateUser} className="flex flex-col gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
-                    {t('createNewAccount')}
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+                      {t('createNewAccount')}
+                    </span>
+                    <UdsButton
+                      type="submit"
+                      variant="secondary"
+                      className="whitespace-nowrap shrink-0 text-[10px]"
+                    >
+                      <Plus size={12} className="mr-1" /> {t('createButton')}
+                    </UdsButton>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-3 items-end">
                     <div>
                       <UdsInput
@@ -298,16 +307,28 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                     </div>
                     <div>
                       <UdsSelect
-                        options={roles.map(r => ({ value: r.id, label: r.name }))}
+                        options={roles.map(r => ({ value: r.id, label: `【角色】${r.name}` }))}
                         value={newUserRoleId}
                         onChange={(e) => setNewUserRoleId(e.target.value)}
                       />
                     </div>
-                    <div className="flex md:justify-end">
-                      <UdsButton type="submit" variant="secondary" className="w-full md:w-auto whitespace-nowrap shrink-0">
-                        <Plus size={12} className="mr-1" /> {t('createButton')}
-                      </UdsButton>
-                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <div className="border-t xl:border-t-0 xl:border-l border-solid border-white/10 pt-4 xl:pt-0 xl:pl-4">
+                <form onSubmit={handleCreateRole} className="flex flex-col gap-3">
+                  <UdsInput
+                    label={t('newRoleCodeName')}
+                    placeholder={t('roleNamePlaceholder')}
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    required
+                  />
+                  <div className="flex md:justify-end">
+                    <UdsButton type="submit" variant="secondary" className="w-full md:w-auto whitespace-nowrap shrink-0">
+                      <Plus size={12} className="mr-1" /> {t('createRoleButton')}
+                    </UdsButton>
                   </div>
                 </form>
               </div>
@@ -523,22 +544,6 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                 </tbody>
               </table>
             </div>
-
-            {/* 新增角色 */}
-            <form onSubmit={handleCreateRole} className="border-t border-solid border-white/10 pt-6 flex gap-4 items-end">
-              <div className="flex-1">
-                <UdsInput
-                  label={t('newRoleCodeName')}
-                  placeholder={t('roleNamePlaceholder')}
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  required
-                />
-              </div>
-              <UdsButton type="submit" variant="secondary">
-                <Plus size={12} className="mr-1" /> {t('createRoleButton')}
-              </UdsButton>
-            </form>
           </UdsCard>
         </div>
       </div>

@@ -222,6 +222,12 @@ export const assemblyApi = {
   listLogs: () => request<any[]>('/assembly/logs'),
 };
 
+// --- Global Search ---
+export const searchApi = {
+  globalSearch: (keyword: string) =>
+    request<import('../types').GlobalSearchResult>(`/search?q=${encodeURIComponent(keyword)}`),
+};
+
 // --- BOM ---
 export const bomApi = {
   list: () => request<any[]>('/bom'),
