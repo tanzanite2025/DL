@@ -3,6 +3,7 @@ import { UdsCard, UdsButton } from '../uds/UdsComponents';
 import { useI18n } from '../../i18n/I18nContext';
 import { Item } from '../../types';
 import { Package, Trash2, Edit3 } from 'lucide-react';
+import { SecureMoney } from '../common/SecureMoney';
 
 interface ProductLedgerProps {
   materials: Item[];
@@ -10,6 +11,7 @@ interface ProductLedgerProps {
   onEdit: (item: Item) => void;
   onDelete: (id: string) => void;
   onOpenBomModal: () => void;
+  canViewCost: boolean;
 }
 
 export const ProductLedger: React.FC<ProductLedgerProps> = ({
@@ -18,6 +20,7 @@ export const ProductLedger: React.FC<ProductLedgerProps> = ({
   onEdit,
   onDelete,
   onOpenBomModal,
+  canViewCost,
 }) => {
   const { t } = useI18n();
 
@@ -71,8 +74,11 @@ export const ProductLedger: React.FC<ProductLedgerProps> = ({
                     {item.description || '-'}
                   </td>
                   <td className="py-3.5 text-right font-mono text-sm font-bold text-neutral-200">
-                    {item.currency?.symbol}
-                    {item.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
+                    <SecureMoney
+                      value={item.cost}
+                      symbol={item.currency?.symbol}
+                      canView={canViewCost}
+                    />
                   </td>
                   <td className="py-3.5 text-right pr-2">
                     <div className="flex items-center justify-end gap-2">
@@ -162,8 +168,11 @@ export const ProductLedger: React.FC<ProductLedgerProps> = ({
                     {item.unit}
                   </td>
                   <td className="py-3.5 text-right font-mono text-sm font-bold text-emerald-400">
-                    {item.currency?.symbol}
-                    {item.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
+                    <SecureMoney
+                      value={item.cost}
+                      symbol={item.currency?.symbol}
+                      canView={canViewCost}
+                    />
                   </td>
                   <td className="py-3.5 text-right pr-2">
                     <div className="flex items-center justify-end gap-2">

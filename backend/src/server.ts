@@ -50,6 +50,8 @@ async function seedDatabase() {
           canAccessPurchase: true,
           canAccessAssembly: true,
           canAccessAudit: true,
+          canViewCost: true,
+          canViewSalesPrice: true,
         },
       });
 
@@ -61,6 +63,8 @@ async function seedDatabase() {
           canAccessGoods: true,
           canAccessFinance: false,
           canAccessProducts: false,
+          canViewCost: false,
+          canViewSalesPrice: false,
         },
       });
 
@@ -72,6 +76,8 @@ async function seedDatabase() {
           canAccessGoods: false,
           canAccessFinance: true,
           canAccessProducts: false,
+          canViewCost: true,
+          canViewSalesPrice: true,
         },
       });
 

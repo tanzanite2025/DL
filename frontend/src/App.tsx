@@ -223,7 +223,13 @@ function DashboardShell({
           {userPermission?.canAccessProducts && (
             <Route
               path="/products"
-              element={<ProductsManagement token={token} showToast={showToast} />}
+              element={
+                <ProductsManagement
+                  token={token}
+                  showToast={showToast}
+                  canViewCost={userPermission?.canViewCost ?? false}
+                />
+              }
             />
           )}
           {userPermission?.canAccessWarehouse && (
@@ -235,7 +241,13 @@ function DashboardShell({
           {userPermission?.canAccessGoods && (
             <Route
               path="/goods"
-              element={<GoodsMovements token={token} showToast={showToast} />}
+              element={
+                <GoodsMovements
+                  token={token}
+                  showToast={showToast}
+                  canViewCost={userPermission?.canViewCost ?? false}
+                />
+              }
             />
           )}
           {userPermission?.canAccessFinance && (
@@ -427,6 +439,8 @@ export default function App() {
         canAccessSales: data.role.canAccessSales ?? false,
         canAccessPurchase: data.role.canAccessPurchase ?? false,
         canAccessAssembly: data.role.canAccessAssembly ?? false,
+        canViewCost: data.role.canViewCost ?? false,
+        canViewSalesPrice: data.role.canViewSalesPrice ?? false,
       });
     } catch (error: any) {
       console.error(error);

@@ -65,21 +65,28 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
       return res.status(404).json({ error: '[CRITICAL] 找不到当前登录用户的信息。' });
     }
 
+    const role = user.role;
+
+    // 系统管理员在会话中必须始终拥有全部模块访问与金额查看权限，避免因配置错误看不到任何页面
+    const isSystemAdmin = role.protected && role.name === '系统管理员';
+
     return res.json({
       id: user.id,
       username: user.username,
       role: {
-        id: user.role.id,
-        name: user.role.name,
-        protected: user.role.protected,
-        canAccessUsers: user.role.canAccessUsers,
-        canAccessWarehouse: user.role.canAccessWarehouse,
-        canAccessGoods: user.role.canAccessGoods,
-        canAccessFinance: user.role.canAccessFinance,
-        canAccessProducts: user.role.canAccessProducts,
-        canAccessSales: user.role.canAccessSales,
-        canAccessPurchase: user.role.canAccessPurchase,
-        canAccessAssembly: user.role.canAccessAssembly,
+        id: role.id,
+        name: role.name,
+        protected: role.protected,
+        canAccessUsers: isSystemAdmin ? true : role.canAccessUsers,
+        canAccessWarehouse: isSystemAdmin ? true : role.canAccessWarehouse,
+        canAccessGoods: isSystemAdmin ? true : role.canAccessGoods,
+        canAccessFinance: isSystemAdmin ? true : role.canAccessFinance,
+        canAccessProducts: isSystemAdmin ? true : role.canAccessProducts,
+        canAccessSales: isSystemAdmin ? true : role.canAccessSales,
+        canAccessPurchase: isSystemAdmin ? true : role.canAccessPurchase,
+        canAccessAssembly: isSystemAdmin ? true : role.canAccessAssembly,
+        canViewCost: isSystemAdmin ? true : role.canViewCost,
+        canViewSalesPrice: isSystemAdmin ? true : role.canViewSalesPrice,
       },
     });
   } catch (error: any) {

@@ -20,6 +20,8 @@ model Role {
   canAccessPurchase  Boolean  @default(false)
   canAccessAssembly  Boolean  @default(false)
   canAccessAudit     Boolean  @default(false)
+  canViewCost        Boolean  @default(false) // 是否可查看成本价、库存价值等敏感金额
+  canViewSalesPrice  Boolean  @default(false) // 是否可查看销售单价/销售金额
   users              User[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

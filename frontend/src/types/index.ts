@@ -15,6 +15,8 @@ export interface Role {
   canAccessSales: boolean;
   canAccessPurchase: boolean;
   canAccessAssembly: boolean;
+  canViewCost: boolean;
+  canViewSalesPrice: boolean;
 }
 
 export interface User {
@@ -35,6 +37,8 @@ export interface UserPermission {
   canAccessSales: boolean;
   canAccessPurchase: boolean;
   canAccessAssembly: boolean;
+  canViewCost: boolean;
+  canViewSalesPrice: boolean;
 }
 
 // --- 仓库 ---

@@ -37,7 +37,16 @@ export const requirePermission = (permissionKey: string) => {
     }
     try {
       const role = await prisma.role.findUnique({ where: { id: req.user.roleId } });
-      if (!role || !(permissionKey in role) || !(role as any)[permissionKey]) {
+      if (!role) {
+        return res.status(403).json({ error: '[CRITICAL] 角色不存在或已被删除。' });
+      }
+
+      // 系统管理员角色在权限中间件中绕过所有权限检查，避免被配置错误锁死
+      if (role.protected && role.name === '系统管理员') {
+        return next();
+      }
+
+      if (!(permissionKey in role) || !(role as any)[permissionKey]) {
         return res.status(403).json({ error: '[CRITICAL] 角色权限矩阵未授予该入口的访问权。' });
       }
       next();

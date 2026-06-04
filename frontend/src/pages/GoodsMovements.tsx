@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsBadge, UdsInput } from '../components/uds/UdsComponents';
+import { SecureMoney } from '../components/common/SecureMoney';
 import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
 import { useI18n } from '../i18n/I18nContext';
@@ -12,9 +13,10 @@ import { useGoodsMoves } from '../hooks/useGoodsMoves';
 interface GoodsMovementsProps {
   token: string;
   showToast: ShowToast;
+  canViewCost: boolean;
 }
 
-export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, showToast }) => {
+export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, showToast, canViewCost }) => {
   const { t } = useI18n();
   const { items, isLoading: itemsLoading, fetchItems } = useItems();
   const { warehouses, isLoading: whLoading, fetchWarehouses } = useWarehouses();
@@ -155,8 +157,7 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
                 key={symbol}
                 className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20"
               >
-                {symbol}
-                {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                <SecureMoney value={total} symbol={symbol} canView={canViewCost} />
               </span>
             ))}
           </div>

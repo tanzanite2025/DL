@@ -15,6 +15,7 @@ import { BomConfigModal } from '../components/products/BomConfigModal';
 interface ProductsManagementProps {
   token: string;
   showToast: ShowToast;
+  canViewCost: boolean;
 }
 
 interface BomComponent {
@@ -24,7 +25,7 @@ interface BomComponent {
   remarks?: string;
 }
 
-export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _token, showToast }) => {
+export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _token, showToast, canViewCost }) => {
   const { t } = useI18n();
   const { items, isLoading, createItem, updateItem, deleteItem } = useItems();
   const { units } = useUnits();
@@ -311,6 +312,7 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
           onEdit={startEdit}
           onDelete={handleDelete}
           onOpenBomModal={() => setIsBomModalOpen(true)}
+          canViewCost={canViewCost}
         />
       </div>
       
@@ -330,6 +332,7 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
         currencies={currencies}
         bomCostSummary={bomCostSummary}
         isSaving={isSavingBom}
+        canViewCost={canViewCost}
         onBomNameChange={setNewBomName}
         onBomUnitChange={setNewBomUnit}
         onBomDescChange={setNewBomDesc}

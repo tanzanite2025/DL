@@ -3,6 +3,7 @@ import { UdsButton, UdsInput } from '../uds/UdsComponents';
 import { useI18n } from '../../i18n/I18nContext';
 import type { Item, Currency } from '../../types';
 import type { Unit } from '../../hooks/useUnits';
+import { SecureMoney } from '../common/SecureMoney';
 
 export interface BomComponentRow {
   componentItemId: string;
@@ -26,6 +27,7 @@ interface BomConfigModalProps {
   currencies: Currency[];
   bomCostSummary: Record<string, number>;
   isSaving: boolean;
+  canViewCost: boolean;
   onBomNameChange: (value: string) => void;
   onBomUnitChange: (value: string) => void;
   onBomDescChange: (value: string) => void;
@@ -52,6 +54,7 @@ export const BomConfigModal: React.FC<BomConfigModalProps> = ({
   currencies,
   bomCostSummary,
   isSaving,
+  canViewCost,
   onBomNameChange,
   onBomUnitChange,
   onBomDescChange,
@@ -68,12 +71,12 @@ export const BomConfigModal: React.FC<BomConfigModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#121214] border border-white/10 rounded-3xl p-8 max-w-2xl w-full mx-4 shadow-2xl animate-in zoom-in-95 duration-300">
+      <div className="bg-[#121214] border border-white/10 rounded-3xl p-8 w-[80vw] max-w-[1200px] h-[85vh] mx-4 shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col">
         <h3 className="text-lg font-black uppercase tracking-wider text-white mb-6">
           {t('configureBom')}
         </h3>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex-1 flex flex-col gap-5 overflow-y-auto">
           {/* 新建 BOM 成品 */}
           <div className="border-t border-white/5 pt-4">
             <div className="flex items-center justify-between mb-2">
@@ -81,7 +84,7 @@ export const BomConfigModal: React.FC<BomConfigModalProps> = ({
                 {t('bomConfig')}
               </span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
               <UdsInput
                 label={t('bomName')}
                 placeholder={t('bomName')}
@@ -190,8 +193,11 @@ export const BomConfigModal: React.FC<BomConfigModalProps> = ({
                         <span>{comp.componentItem.code}</span>
                         <span className="opacity-50">|</span>
                         <span className="text-amber-500 font-bold">
-                          {comp.componentItem.currency?.symbol}
-                          {comp.componentItem.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}
+                          <SecureMoney
+                            value={comp.componentItem.cost}
+                            symbol={comp.componentItem.currency?.symbol}
+                            canView={canViewCost}
+                          />
                           {' / '}
                           {comp.componentItem.unit}
                         </span>
@@ -204,8 +210,11 @@ export const BomConfigModal: React.FC<BomConfigModalProps> = ({
                       <div className="text-[10px] text-neutral-500 font-mono mt-0.5">
                         小计:{' '}
                         <span className="text-white font-bold">
-                          {comp.componentItem.currency?.symbol}
-                          {((comp.componentItem.cost || 0) * comp.quantity).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          <SecureMoney
+                            value={(comp.componentItem.cost || 0) * comp.quantity}
+                            symbol={comp.componentItem.currency?.symbol}
+                            canView={canViewCost}
+                          />
                         </span>
                       </div>
                     </div>
@@ -239,7 +248,7 @@ export const BomConfigModal: React.FC<BomConfigModalProps> = ({
                     >
                       <span className="text-sm font-bold text-emerald-400">{symbol}</span>
                       <span className="text-sm font-mono font-bold text-white">
-                        {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        <SecureMoney value={total} symbol={symbol} canView={canViewCost} />
                       </span>
                     </div>
                   ))}

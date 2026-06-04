@@ -9,7 +9,26 @@ router.get('/', authenticateToken, requirePermission('canAccessUsers'), async (r
     const roles = await prisma.role.findMany({
       orderBy: { createdAt: 'asc' },
     });
-    return res.json(roles);
+    const normalized = roles.map((role) => {
+      if (role.protected && role.name === '系统管理员') {
+        return {
+          ...role,
+          canAccessUsers: true,
+          canAccessWarehouse: true,
+          canAccessGoods: true,
+          canAccessFinance: true,
+          canAccessProducts: true,
+          canAccessSales: true,
+          canAccessPurchase: true,
+          canAccessAssembly: true,
+          canAccessAudit: true,
+          canViewCost: true,
+          canViewSalesPrice: true,
+        };
+      }
+      return role;
+    });
+    return res.json(normalized);
   } catch (error) {
     return res.status(500).json({ error: '[CRITICAL] 无法拉取角色权限矩阵。' });
   }
@@ -32,20 +51,50 @@ router.post('/', authenticateToken, requirePermission('canAccessUsers'), async (
 
 router.put('/:id', authenticateToken, requirePermission('canAccessUsers'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { canAccessUsers, canAccessWarehouse, canAccessGoods, canAccessFinance, canAccessProducts, canAccessSales, canAccessPurchase, canAccessAssembly } = req.body;
+  const {
+    canAccessUsers,
+    canAccessWarehouse,
+    canAccessGoods,
+    canAccessFinance,
+    canAccessProducts,
+    canAccessSales,
+    canAccessPurchase,
+    canAccessAssembly,
+    canViewCost,
+    canViewSalesPrice,
+  } = req.body;
   try {
+    const existing = await prisma.role.findUnique({ where: { id } });
+    const data: any = {
+      canAccessUsers,
+      canAccessWarehouse,
+      canAccessGoods,
+      canAccessFinance,
+      canAccessProducts,
+      canAccessSales,
+      canAccessPurchase,
+      canAccessAssembly,
+      canViewCost,
+      canViewSalesPrice,
+    };
+
+    // 系统管理员角色永远保留全部访问与金额查看权限，避免误操作锁死自己
+    if (existing?.protected && existing.name === '系统管理员') {
+      data.canAccessUsers = true;
+      data.canAccessWarehouse = true;
+      data.canAccessGoods = true;
+      data.canAccessFinance = true;
+      data.canAccessProducts = true;
+      data.canAccessSales = true;
+      data.canAccessPurchase = true;
+      data.canAccessAssembly = true;
+      data.canViewCost = true;
+      data.canViewSalesPrice = true;
+    }
+
     const updatedRole = await prisma.role.update({
       where: { id },
-      data: {
-        canAccessUsers,
-        canAccessWarehouse,
-        canAccessGoods,
-        canAccessFinance,
-        canAccessProducts,
-        canAccessSales,
-        canAccessPurchase,
-        canAccessAssembly,
-      },
+      data,
     });
     return res.json(updatedRole);
   } catch (error) {

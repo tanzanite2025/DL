@@ -57,6 +57,10 @@ export const translations = {
     permissionSales: "销售\n管理",
     permissionPurchase: "采购\n管理",
     permissionAssembly: "BOM\n组装",
+    permissionViewCost: "金额\n可见",
+    bulkPermissionUserLabel: "批量目标操作员",
+    bulkSelectAllPermissions: "全选模块",
+    bulkClearAllPermissions: "清空模块",
     
     // BOM 配置功能（统一为物料）
     bomConfig: "BOM 基本信息",
@@ -569,6 +573,10 @@ export const translations = {
     permissionSales: "Sales",
     permissionPurchase: "Procure-\nment",
     permissionAssembly: "Assembly",
+    permissionViewCost: "Cost\nVisible",
+    bulkPermissionUserLabel: "Target Operator",
+    bulkSelectAllPermissions: "Grant All",
+    bulkClearAllPermissions: "Revoke All",
     
     // BOM Assembly
     bomConfig: "BOM Config",

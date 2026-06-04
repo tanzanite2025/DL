@@ -20,7 +20,7 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
   onRefreshPermissions
 }) => {
   const { t } = useI18n();
-  const { users, roles, isLoading, createUser, updateUserRole, deleteUser, createRole, deleteRole, togglePermission } = useUsersAndRoles();
+  const { users, roles, isLoading, createUser, updateUserRole, deleteUser, createRole, deleteRole, togglePermission, updateRolePermissions } = useUsersAndRoles();
   const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 新增用户表单
@@ -30,6 +30,9 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
 
   // 新增角色表单
   const [newRoleName, setNewRoleName] = useState('');
+
+  // 批量权限操作目标用户
+  const [bulkTargetUserId, setBulkTargetUserId] = useState<string>('');
 
   // 角色加载后设置默认选中
   React.useEffect(() => {
@@ -127,6 +130,53 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
       if (currentUser && currentUser.roleId === roleId) {
         onRefreshPermissions();
       }
+    } catch (error: any) {
+      showToast(error.message || '保存权限配置失败', 'error');
+    }
+  };
+
+  // 批量全选/清空权限（基于选中的操作员 -> 其角色）
+  const handleBulkSetPermissions = async (mode: 'all' | 'none') => {
+    if (!bulkTargetUserId) {
+      showToast('请先选择一个操作员', 'error');
+      return;
+    }
+
+    const user = users.find((u) => u.id === bulkTargetUserId);
+    if (!user) {
+      showToast('未找到该操作员', 'error');
+      return;
+    }
+
+    const role = roles.find((r) => r.id === user.roleId);
+    if (!role) {
+      showToast('未找到该角色', 'error');
+      return;
+    }
+
+    const value = mode === 'all';
+    // 批量操作：对该角色的所有模块访问与金额可见权限一并全选/清空
+    // 系统管理员角色在后端有硬保护，这里可以放心统一处理
+    const payload = {
+      canAccessUsers: value,
+      canAccessWarehouse: value,
+      canAccessProducts: value,
+      canAccessGoods: value,
+      canAccessFinance: value,
+      canAccessSales: value,
+      canAccessPurchase: value,
+      canAccessAssembly: value,
+      canViewCost: value,
+      canViewSalesPrice: value,
+    };
+
+    try {
+      await updateRolePermissions(role.id, payload);
+      // 如果当前登录用户使用的就是这个角色，刷新权限
+      if (user.id === currentUserId) {
+        onRefreshPermissions();
+      }
+      showToast('角色权限已更新', 'success');
     } catch (error: any) {
       showToast(error.message || '保存权限配置失败', 'error');
     }
@@ -254,9 +304,54 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
         {/* 右侧：权限矩阵配置 */}
         <div className="lg:col-span-7 flex flex-col gap-8">
           <UdsCard title={t('rolePermissionMatrix')}>
-            <p className="text-[10px] text-neutral-500 uppercase tracking-wide mb-6">
-              {t('rolePermissionMatrixDesc')}
-            </p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wide">
+                {t('rolePermissionMatrixDesc')}
+              </p>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-neutral-500 whitespace-nowrap">
+                    {t('bulkPermissionUserLabel')}
+                  </span>
+                  <select
+                    className="h-8 px-3 rounded-2xl border-none bg-[#1c1c1e]/70 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-neutral-700 cursor-pointer"
+                    value={bulkTargetUserId}
+                    onChange={(e) => setBulkTargetUserId(e.target.value)}
+                  >
+                    <option value="">--</option>
+                    {users.map((u) => {
+                      const role = roles.find((r) => r.id === u.roleId);
+                      const label = role ? role.name : u.username;
+                      return (
+                        <option key={u.id} value={u.id} className="bg-[#121214] text-white">
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <UdsButton
+                    type="button"
+                    variant="ghost"
+                    className="h-8 px-3 text-[9px] font-black uppercase tracking-widest"
+                    onClick={() => handleBulkSetPermissions('all')}
+                    disabled={!bulkTargetUserId}
+                  >
+                    {t('bulkSelectAllPermissions')}
+                  </UdsButton>
+                  <UdsButton
+                    type="button"
+                    variant="ghost"
+                    className="h-8 px-3 text-[9px] font-black uppercase tracking-widest"
+                    onClick={() => handleBulkSetPermissions('none')}
+                    disabled={!bulkTargetUserId}
+                  >
+                    {t('bulkClearAllPermissions')}
+                  </UdsButton>
+                </div>
+              </div>
+            </div>
 
             <div className="overflow-x-auto w-full mb-6">
               <table className="w-full text-left border-collapse">
@@ -288,6 +383,9 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                     </th>
                     <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionAssembly')}
+                    </th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
+                      {t('permissionViewCost')}
                     </th>
                     <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
                       {t('actionsColumn')}
@@ -374,6 +472,14 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                           type="checkbox"
                           checked={role.canAccessAssembly}
                           onChange={() => handleTogglePermission(role.id, 'canAccessAssembly')}
+                          className="h-4 w-4 rounded border-dashed border-neutral-700 bg-neutral-900 text-white focus:ring-0 cursor-pointer accent-white"
+                        />
+                      </td>
+                      <td className="py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={!!role.canViewCost}
+                          onChange={() => handleTogglePermission(role.id, 'canViewCost')}
                           className="h-4 w-4 rounded border-dashed border-neutral-700 bg-neutral-900 text-white focus:ring-0 cursor-pointer accent-white"
                         />
                       </td>

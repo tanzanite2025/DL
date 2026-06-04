@@ -76,6 +76,9 @@ export function useUsersAndRoles() {
       canAccessFinance: roleToUpdate.canAccessFinance,
       canAccessSales: roleToUpdate.canAccessSales,
       canAccessPurchase: roleToUpdate.canAccessPurchase,
+      canAccessAssembly: roleToUpdate.canAccessAssembly,
+      canViewCost: roleToUpdate.canViewCost ?? false,
+      canViewSalesPrice: roleToUpdate.canViewSalesPrice ?? false,
       [permissionKey]: !roleToUpdate[permissionKey],
     };
 
