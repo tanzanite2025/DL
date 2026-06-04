@@ -101,12 +101,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
               </UdsButton>
             </div>
           </form>
-          
-          <div className="mt-4 text-center">
-            <span className="text-[8px] font-mono text-neutral-500 block">
-              {t('defaultAccounts')}
-            </span>
-          </div>
         </UdsCard>
       </div>
     </div>
