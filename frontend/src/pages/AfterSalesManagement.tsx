@@ -100,13 +100,6 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
             <UdsButton className="h-9 px-4 text-[10px]" onClick={handleOpenCreate}>
               添加售后
             </UdsButton>
-            <UdsButton
-              variant="ghost"
-              className="h-9 px-4 text-[10px] font-black uppercase"
-              onClick={() => setIsAuditOpen(true)}
-            >
-              审计日志
-            </UdsButton>
           </div>
         }
       />
@@ -215,6 +208,17 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
         onSubmit={handleModalSubmit}
         showToast={showToast}
       />
+
+      {/* 浮动审计按钮：固定在页面右下角 */}
+      <div className="fixed bottom-24 right-[2.5%] z-30">
+        <UdsButton
+          variant="ghost"
+          className="h-9 px-4 text-[10px] font-black uppercase shadow-lg bg-black/70 border border-white/10"
+          onClick={() => setIsAuditOpen(true)}
+        >
+          审计日志
+        </UdsButton>
+      </div>
 
       <AuditLogModal
         isOpen={isAuditOpen}

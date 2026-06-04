@@ -272,12 +272,6 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
         description={t('salesDesc')}
       />
 
-      <div className="flex justify-end">
-        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
-          审计日志
-        </UdsButton>
-      </div>
-
       {/* 模块子 Tab 切换（无边框暗色药丸胶囊） */}
       <div className="flex bg-black/40 p-1 rounded-full w-fit gap-1 self-start select-none">
         <button
@@ -706,6 +700,17 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
           </div>
         </div>
       )}
+
+      {/* 浮动审计按钮：固定在页面右下角 */}
+      <div className="fixed bottom-24 right-[2.5%] z-30">
+        <UdsButton
+          variant="ghost"
+          className="h-9 px-4 text-[10px] font-black uppercase shadow-lg bg-black/70 border border-white/10"
+          onClick={() => setIsAuditOpen(true)}
+        >
+          审计日志
+        </UdsButton>
+      </div>
 
       <AuditLogModal
         isOpen={isAuditOpen}

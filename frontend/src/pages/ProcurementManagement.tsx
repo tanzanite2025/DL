@@ -243,12 +243,6 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
         description={t('procurementDesc')}
       />
 
-      <div className="flex justify-end">
-        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
-          审计日志
-        </UdsButton>
-      </div>
-
       {/* TAB 切换 */}
       <div className="flex bg-[#121214] p-1.5 rounded-2xl border border-dashed border-white/5 self-start gap-2">
         <button
@@ -700,6 +694,17 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
           </div>
         </div>
       )}
+
+      {/* 浮动审计按钮：固定在页面右下角 */}
+      <div className="fixed bottom-24 right-[2.5%] z-30">
+        <UdsButton
+          variant="ghost"
+          className="h-9 px-4 text-[10px] font-black uppercase shadow-lg bg-black/70 border border-white/10"
+          onClick={() => setIsAuditOpen(true)}
+        >
+          审计日志
+        </UdsButton>
+      </div>
 
       <AuditLogModal
         isOpen={isAuditOpen}

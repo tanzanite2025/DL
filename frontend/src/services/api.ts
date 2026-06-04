@@ -215,9 +215,9 @@ export const afterSalesApi = {
 export const assemblyApi = {
   check: (data: { assembledItemId: string; quantity: number; warehouseId: string }) =>
     request('/assembly/check', { method: 'POST', body: JSON.stringify(data) }),
-  assemble: (data: { assembledItemId: string; quantity: number; warehouseId: string; remarks?: string }) =>
+  assemble: (data: { assembledItemId: string; quantity: number; warehouseId: string; currencyId?: string; remarks?: string }) =>
     request('/assembly/assemble', { method: 'POST', body: JSON.stringify(data) }),
-  disassemble: (data: { assembledItemId: string; quantity: number; warehouseId: string; remarks?: string }) =>
+  disassemble: (data: { assembledItemId: string; quantity: number; warehouseId: string; currencyId?: string; remarks?: string }) =>
     request('/assembly/disassemble', { method: 'POST', body: JSON.stringify(data) }),
   listLogs: () => request<any[]>('/assembly/logs'),
 };

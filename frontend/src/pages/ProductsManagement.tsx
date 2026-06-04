@@ -275,12 +275,6 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
         description={t('productsDesc')}
       />
 
-      <div className="flex justify-end">
-        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
-          审计日志
-        </UdsButton>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* 左侧：产品表单 */}
         <div className="lg:col-span-5">
@@ -343,6 +337,18 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
         onRemoveComponent={handleRemoveBomComponent}
         onSaveBom={handleSaveBom}
       />
+
+      {/* 浮动审计按钮：固定在页面右下角 */}
+      <div className="fixed bottom-24 right-[2.5%] z-30">
+        <UdsButton
+          variant="ghost"
+          className="h-9 px-4 text-[10px] font-black uppercase shadow-lg bg-black/70 border border-white/10"
+          onClick={() => setIsAuditOpen(true)}
+        >
+          审计日志
+        </UdsButton>
+      </div>
+
       <AuditLogModal
         isOpen={isAuditOpen}
         onClose={() => setIsAuditOpen(false)}

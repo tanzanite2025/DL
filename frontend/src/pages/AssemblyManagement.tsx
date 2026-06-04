@@ -4,6 +4,7 @@ import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { useI18n } from '../i18n/I18nContext';
 import { Box, Play, RotateCcw } from 'lucide-react';
 import { ShowToast } from '../types';
+import { useItems } from '../hooks/useItems';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { useCurrencies } from '../hooks/useCurrencies';
 import { assemblyApi } from '../services/api';
@@ -25,7 +26,6 @@ interface AssemblyLog {
   warehouse: {
     name: string;
   };
-  user: {
   user: {
     username: string;
   };
@@ -206,13 +206,6 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
           {t('assemblyHistory')}
         </button>
       </div>
-
-      <div className="flex justify-end">
-        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
-          审计日志
-        </UdsButton>
-      </div>
-
 
       {/* 组装操作 Tab */}
       {activeTab === 'assembly' && (
@@ -508,6 +501,18 @@ export const AssemblyManagement: React.FC<AssemblyManagementProps> = ({ token: _
           )}
         </UdsCard>
       )}
+
+      {/* 浮动审计按钮：固定在页面右下角 */}
+      <div className="fixed bottom-24 right-[2.5%] z-30">
+        <UdsButton
+          variant="ghost"
+          className="h-9 px-4 text-[10px] font-black uppercase shadow-lg bg-black/70 border border-white/10"
+          onClick={() => setIsAuditOpen(true)}
+        >
+          审计日志
+        </UdsButton>
+      </div>
+
       <AuditLogModal
         isOpen={isAuditOpen}
         onClose={() => setIsAuditOpen(false)}

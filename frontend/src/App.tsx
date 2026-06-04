@@ -225,10 +225,9 @@ function DashboardShell({
             {/* 退出系统 */}
             <button
               onClick={onLogout}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 h-10 rounded-full text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition-all active:scale-95"
+              className="flex items-center justify-center px-3 py-2 h-10 rounded-full text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition-all active:scale-95"
               title={`${t('systemIdLabel')}: ${userId.substring(0, 8)}...`}
             >
-              <span>{t('signOutOperator')}</span>
               <LogOut size={12} />
             </button>
           </div>

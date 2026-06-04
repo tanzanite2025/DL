@@ -150,12 +150,6 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
         }
       />
 
-      <div className="flex justify-end">
-        <UdsButton variant="ghost" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => setIsAuditOpen(true)}>
-          审计日志
-        </UdsButton>
-      </div>
-
       {globalRows.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-1.5 rounded-2xl bg-white/5 border border-white/10">
           <div className="flex items-center gap-4 text-[9px] font-mono text-neutral-400">
@@ -491,6 +485,17 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
           </div>
         </div>
       )}
+
+      {/* 浮动审计按钮：固定在页面右下角 */}
+      <div className="fixed bottom-24 right-[2.5%] z-30">
+        <UdsButton
+          variant="ghost"
+          className="h-9 px-4 text-[10px] font-black uppercase shadow-lg bg-black/70 border border-white/10"
+          onClick={() => setIsAuditOpen(true)}
+        >
+          审计日志
+        </UdsButton>
+      </div>
 
       <AuditLogModal
         isOpen={isAuditOpen}
