@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UdsHeader, UdsCard, UdsButton, UdsBadge } from '../components/uds/UdsComponents';
+import { UdsHeader, UdsCard, UdsButton, UdsBadge, UdsInput } from '../components/uds/UdsComponents';
 import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
 import { useI18n } from '../i18n/I18nContext';
@@ -22,6 +22,8 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
   const [stockMatrix, setStockMatrix] = useState<StockMatrixRow[]>([]);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [expandedWarehouseId, setExpandedWarehouseId] = useState<string | null>(null);
+  const [inventorySearch, setInventorySearch] = useState('');
   const isLoading = itemsLoading || whLoading || movesLoading;
 
   // 计算每个物料在各个仓库中的现有库存
@@ -94,6 +96,29 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
     }
   };
 
+  const globalSearch = inventorySearch.trim().toLowerCase();
+  const globalRows = stockMatrix.filter((row) => {
+    if (!row.totalStock) return false;
+    if (!globalSearch) return true;
+    return (
+      row.itemCode.toLowerCase().includes(globalSearch) ||
+      row.itemName.toLowerCase().includes(globalSearch)
+    );
+  });
+
+  const globalSkuCount = globalRows.length;
+  const globalTotalQty = globalRows.reduce((sum, row) => sum + row.totalStock, 0);
+
+  const globalCostSummary = globalRows.reduce((acc, row) => {
+    const item = items.find((it) => it.code === row.itemCode);
+    if (!item) return acc;
+    const symbol = item.currency?.symbol || '¥';
+    const value = (item.cost || 0) * row.totalStock;
+    if (!acc[symbol]) acc[symbol] = 0;
+    acc[symbol] += value;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in duration-700">
       {/* 页眉 - 已隐藏（保留代码便于定位） */}
@@ -114,74 +139,181 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
         </UdsButton>
       </div>
 
-      {/* 库存矩阵总览 */}
-      <UdsCard title={t('inventoryMatrix')}>
-        {warehouses.length === 0 ? (
-          <div className="text-center py-6 text-[10px] font-mono text-neutral-600">
-            {t('noInventoryData')}
+      {globalRows.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-1.5 rounded-2xl bg-white/5 border border-white/10">
+          <div className="flex items-center gap-4 text-[9px] font-mono text-neutral-400">
+            <span>
+              SKU: <span className="font-bold text-neutral-100">{globalSkuCount}</span>
+            </span>
+            <span>
+              {t('totalStock')}: <span className="font-bold text-emerald-400">{globalTotalQty}</span>
+            </span>
           </div>
-        ) : (
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-solid border-white/10">
-                  <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 pl-2">
-                    {t('itemCodeCol2')}
-                  </th>
-                  <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3">
-                    {t('itemNameCol2')}
-                  </th>
-                  {warehouses.map((wh) => (
-                    <th key={wh.id} className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-center">
-                      {wh.name}
-                    </th>
-                  ))}
-                  <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-3 text-right pr-2">
-                    {t('totalStock')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockMatrix.map((row) => (
-                  <tr
-                    key={row.itemCode}
-                    className="border-b border-solid border-white/5 hover:bg-white/2 transition-all"
+          <div className="flex flex-wrap items-center gap-2">
+            {Object.entries(globalCostSummary).map(([symbol, total]) => (
+              <span
+                key={symbol}
+                className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20"
+              >
+                {symbol}
+                {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {warehouses.length > 0 && (
+        <UdsCard title={t('warehouseInventoryTitle')}>
+          <div className="flex items-center justify-end mb-2 px-2">
+            <UdsInput
+              label=" "
+              placeholder={t('warehouseInventorySearchPlaceholder')}
+              value={inventorySearch}
+              onChange={(e) => setInventorySearch(e.target.value)}
+              className="w-56"
+            />
+          </div>
+          <div className="flex flex-col divide-y divide-white/5">
+            {warehouses.map((wh) => {
+              const search = inventorySearch.trim().toLowerCase();
+
+              const rows = stockMatrix
+                .map((row) => {
+                  const qty = row.warehouseStocks[wh.id] || 0;
+                  if (!qty) return null;
+                  return {
+                    itemCode: row.itemCode,
+                    itemName: row.itemName,
+                    unit: row.unit,
+                    qty,
+                  };
+                })
+                .filter(
+                  (r): r is { itemCode: string; itemName: string; unit: string; qty: number } =>
+                    r !== null,
+                )
+                .filter((r) => {
+                  if (!search) return true;
+                  return (
+                    r.itemCode.toLowerCase().includes(search) ||
+                    r.itemName.toLowerCase().includes(search)
+                  );
+                });
+
+              const isExpanded = expandedWarehouseId === wh.id;
+
+              const costSummary = rows.reduce((acc, r) => {
+                const item = items.find((it) => it.code === r.itemCode);
+                if (!item) return acc;
+                const symbol = item.currency?.symbol || '¥';
+                const value = (item.cost || 0) * r.qty;
+                if (!acc[symbol]) acc[symbol] = 0;
+                acc[symbol] += value;
+                return acc;
+              }, {} as Record<string, number>);
+
+              return (
+                <div key={wh.id} className="py-2">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between text-left px-2 py-2 rounded-xl hover:bg-white/5 transition-colors"
+                    onClick={() =>
+                      setExpandedWarehouseId((prev) => (prev === wh.id ? null : wh.id))
+                    }
                   >
-                    <td className="py-3.5 pl-2">
-                      <span className="text-[10px] font-mono font-bold text-neutral-200">{row.itemCode}</span>
-                    </td>
-                    <td className="py-3.5">
-                      <span className="text-xs font-semibold text-neutral-300">{row.itemName}</span>
-                    </td>
-                    {warehouses.map((wh) => {
-                      const qty = row.warehouseStocks[wh.id] || 0;
-                      return (
-                        <td key={wh.id} className="py-3.5 text-center">
-                          <span className={`text-xs font-mono font-semibold ${qty > 0 ? 'text-neutral-200' : 'text-neutral-600'}`}>
-                            {qty} <span className="text-[9px] text-neutral-600">{row.unit}</span>
-                          </span>
-                        </td>
-                      );
-                    })}
-                    <td className="py-3.5 text-right pr-2 font-semibold">
-                      <span className={`text-xs font-mono ${row.totalStock > 0 ? 'text-neutral-200 font-bold' : 'text-neutral-600'}`}>
-                        {row.totalStock} <span className="text-[9px] text-neutral-600">{row.unit}</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-neutral-200">{wh.name}</span>
+                      {wh.location && (
+                        <span className="text-[9px] text-neutral-500 font-mono mt-0.5">
+                          {wh.location}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[9px] font-mono text-neutral-500">
+                        {t('totalStock')}: {" "}
+                        <span className="font-bold text-emerald-400">
+                          {rows.reduce((sum, r) => sum + r.qty, 0)}
+                        </span>
                       </span>
-                    </td>
-                  </tr>
-                ))}
-                {stockMatrix.length === 0 && (
-                  <tr>
-                    <td colSpan={3 + warehouses.length} className="text-center py-6 text-[10px] font-mono text-neutral-600">
-                      {t('noInventoryData')}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      <span className="text-[9px] font-mono text-neutral-500">
+                        SKU: {rows.length}
+                      </span>
+                      {Object.entries(costSummary).map(([symbol, total]) => (
+                        <span
+                          key={symbol}
+                          className="text-[9px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20"
+                        >
+                          {symbol}
+                          {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      ))}
+                      <span className="text-[10px] text-neutral-400">
+                        {isExpanded ? "−" : "+"}
+                      </span>
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="mt-2 px-2">
+                      {rows.length === 0 ? (
+                        <div className="text-center py-3 text-[10px] font-mono text-neutral-600">
+                          {t('noWarehouseInventory')}
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto w-full">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-solid border-white/10">
+                                <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 pl-2">
+                                  {t('itemCodeCol')}
+                                </th>
+                                <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2">
+                                  {t('itemNameCol')}
+                                </th>
+                                <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 text-center">
+                                  {t('itemUnitCol')}
+                                </th>
+                                <th className="text-[10px] font-black uppercase tracking-widest text-neutral-500 pb-2 text-right pr-2">
+                                  {t('totalStock')}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((row) => (
+                                <tr
+                                  key={row.itemCode}
+                                  className="border-b border-solid border-white/5 hover:bg-white/2 transition-all text-xs"
+                                >
+                                  <td className="py-2.5 pl-2 font-mono font-bold text-neutral-200">
+                                    {row.itemCode}
+                                  </td>
+                                  <td className="py-2.5 text-neutral-200">{row.itemName}</td>
+                                  <td className="py-2.5 text-center text-neutral-300">{row.unit}</td>
+                                  <td className="py-2.5 pr-2 text-right">
+                                    <span
+                                      className={`text-xs font-mono font-bold ${
+                                        row.qty > 0 ? 'text-emerald-400' : 'text-rose-400'
+                                      }`}
+                                    >
+                                      {row.qty}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        )}
-      </UdsCard>
+        </UdsCard>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* 全宽：流转记录 */}
