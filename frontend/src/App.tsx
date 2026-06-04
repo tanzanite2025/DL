@@ -124,24 +124,44 @@ function DashboardShell({
   const [globalSearchKeyword, setGlobalSearchKeyword] = useState('');
   const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   const handleGlobalSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const q = globalSearchKeyword.trim();
     if (!q) {
       setGlobalSearchResult(null);
+      setIsSearchModalOpen(false);
       return;
     }
     setIsSearching(true);
     try {
       const res = await searchApi.globalSearch(q);
       setGlobalSearchResult(res);
+      setIsSearchModalOpen(true);
     } catch (error: any) {
       showToast(error.message || '全局搜索失败', 'error');
     } finally {
       setIsSearching(false);
     }
   };
+
+  // 输入后自动触发全局搜索（简短防抖）
+  useEffect(() => {
+    const q = globalSearchKeyword.trim();
+    if (!q) {
+      setGlobalSearchResult(null);
+      setIsSearchModalOpen(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      // 直接调用搜索逻辑，无需额外点击按钮
+      handleGlobalSearch();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [globalSearchKeyword]);
 
   return (
     <div className={`min-h-screen flex flex-col ${shellBg}`}>
@@ -328,7 +348,7 @@ function DashboardShell({
         </Routes>
       </main>
 
-      {/* 全局底部搜索条 */}
+      {/* 全局底部搜索条仅负责输入 */}
       <form
         onSubmit={handleGlobalSearch}
         className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-4xl"
@@ -351,149 +371,189 @@ function DashboardShell({
             {isSearching ? '搜索中...' : '搜索'}
           </button>
         </div>
+      </form>
 
-        {globalSearchResult && (
-          <div className="mt-2 rounded-3xl bg-black/85 border border-white/10 backdrop-blur-md px-4 py-3 max-h-72 overflow-y-auto text-xs text-neutral-100 space-y-2">
-            {globalSearchResult.customers.length > 0 && (
-              <div>
-                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
-                  客户
-                </div>
-                <div className="space-y-1">
-                  {globalSearchResult.customers.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => navigate('/sales')}
-                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
-                    >
-                      <span className="font-semibold mr-2">{c.name}</span>
-                      <span className="text-[10px] text-neutral-500">{c.code}</span>
-                    </button>
-                  ))}
-                </div>
+      {/* 全局搜索结果弹窗（无背景蒙版，仅悬浮面板） */}
+      {isSearchModalOpen && globalSearchResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+          <div className="relative w-[80vw] max-w-[80vw] h-[85vh] bg-[#121214] rounded-[24px] border border-white/10 shadow-2xl flex flex-col pointer-events-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-sm font-black uppercase tracking-tighter text-white">
+                  全局搜索结果
+                </h2>
+                <p className="text-[9px] font-mono uppercase tracking-widest text-neutral-400">
+                  关键字：{globalSearchResult.query || globalSearchKeyword}
+                </p>
               </div>
-            )}
+              <button
+                onClick={() => setIsSearchModalOpen(false)}
+                className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-2 rounded-full hover:bg-white/5 transition-all"
+              >
+                <X size={14} />
+              </button>
+            </div>
 
-            {globalSearchResult.items.length > 0 && (
-              <div>
-                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
-                  产品 / 物料
-                </div>
-                <div className="space-y-1">
-                  {globalSearchResult.items.map((it) => (
-                    <button
-                      key={it.id}
-                      type="button"
-                      onClick={() => navigate('/products')}
-                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
-                    >
-                      <span className="font-semibold mr-2">{it.name}</span>
-                      <span className="text-[10px] text-neutral-500">{it.code}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {globalSearchResult.salesOrders.length > 0 && (
-              <div>
-                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
-                  销售订单
-                </div>
-                <div className="space-y-1">
-                  {globalSearchResult.salesOrders.map((so) => (
-                    <button
-                      key={so.id}
-                      type="button"
-                      onClick={() => navigate('/sales')}
-                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
-                    >
-                      <span className="font-semibold mr-2">{so.orderNo}</span>
-                      <span className="text-[10px] text-neutral-500">{so.customer?.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {globalSearchResult.purchaseOrders.length > 0 && (
-              <div>
-                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
-                  采购订单
-                </div>
-                <div className="space-y-1">
-                  {globalSearchResult.purchaseOrders.map((po) => (
-                    <button
-                      key={po.id}
-                      type="button"
-                      onClick={() => navigate('/procurement')}
-                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
-                    >
-                      <span className="font-semibold mr-2">{po.orderNo}</span>
-                      <span className="text-[10px] text-neutral-500">{po.supplier?.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {globalSearchResult.afterSalesCases.length > 0 && (
-              <div>
-                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
-                  售后记录
-                </div>
-                <div className="space-y-1">
-                  {globalSearchResult.afterSalesCases.map((ac) => (
-                    <button
-                      key={ac.id}
-                      type="button"
-                      onClick={() => navigate('/after-sales')}
-                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
-                    >
-                      <span className="font-semibold mr-2">{ac.customer?.name}</span>
-                      <span className="text-[10px] text-neutral-500">{ac.shipmentTrackingNumber}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {globalSearchResult.warehouses.length > 0 && (
-              <div>
-                <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
-                  仓库
-                </div>
-                <div className="space-y-1">
-                  {globalSearchResult.warehouses.map((w) => (
-                    <button
-                      key={w.id}
-                      type="button"
-                      onClick={() => navigate('/warehouses')}
-                      className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
-                    >
-                      <span className="font-semibold mr-2">{w.name}</span>
-                      <span className="text-[10px] text-neutral-500">{w.location}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {globalSearchResult &&
-              globalSearchResult.customers.length === 0 &&
-              globalSearchResult.items.length === 0 &&
-              globalSearchResult.salesOrders.length === 0 &&
-              globalSearchResult.purchaseOrders.length === 0 &&
-              globalSearchResult.afterSalesCases.length === 0 &&
-              globalSearchResult.warehouses.length === 0 && (
-                <div className="text-[10px] text-neutral-500 text-center py-2">
-                  未找到相关记录
+            <div className="flex-1 overflow-y-auto px-5 py-3 text-xs text-neutral-100 space-y-3">
+              {globalSearchResult.customers.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                    客户
+                  </div>
+                  <div className="space-y-1">
+                    {globalSearchResult.customers.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          navigate('/sales');
+                          setIsSearchModalOpen(false);
+                        }}
+                        className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                      >
+                        <span className="font-semibold mr-2">{c.name}</span>
+                        <span className="text-[10px] text-neutral-500">{c.code}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {globalSearchResult.items.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                    产品 / 物料
+                  </div>
+                  <div className="space-y-1">
+                    {globalSearchResult.items.map((it) => (
+                      <button
+                        key={it.id}
+                        type="button"
+                        onClick={() => {
+                          navigate('/products');
+                          setIsSearchModalOpen(false);
+                        }}
+                        className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                      >
+                        <span className="font-semibold mr-2">{it.name}</span>
+                        <span className="text-[10px] text-neutral-500">{it.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {globalSearchResult.salesOrders.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                    销售订单
+                  </div>
+                  <div className="space-y-1">
+                    {globalSearchResult.salesOrders.map((so) => (
+                      <button
+                        key={so.id}
+                        type="button"
+                        onClick={() => {
+                          navigate('/sales');
+                          setIsSearchModalOpen(false);
+                        }}
+                        className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                      >
+                        <span className="font-semibold mr-2">{so.orderNo}</span>
+                        <span className="text-[10px] text-neutral-500">{so.customer?.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {globalSearchResult.purchaseOrders.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                    采购订单
+                  </div>
+                  <div className="space-y-1">
+                    {globalSearchResult.purchaseOrders.map((po) => (
+                      <button
+                        key={po.id}
+                        type="button"
+                        onClick={() => {
+                          navigate('/procurement');
+                          setIsSearchModalOpen(false);
+                        }}
+                        className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                      >
+                        <span className="font-semibold mr-2">{po.orderNo}</span>
+                        <span className="text-[10px] text-neutral-500">{po.supplier?.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {globalSearchResult.afterSalesCases.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                    售后记录
+                  </div>
+                  <div className="space-y-1">
+                    {globalSearchResult.afterSalesCases.map((ac) => (
+                      <button
+                        key={ac.id}
+                        type="button"
+                        onClick={() => {
+                          navigate('/after-sales');
+                          setIsSearchModalOpen(false);
+                        }}
+                        className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                      >
+                        <span className="font-semibold mr-2">{ac.customer?.name}</span>
+                        <span className="text-[10px] text-neutral-500">{ac.shipmentTrackingNumber}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {globalSearchResult.warehouses.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
+                    仓库
+                  </div>
+                  <div className="space-y-1">
+                    {globalSearchResult.warehouses.map((w) => (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() => {
+                          navigate('/warehouses');
+                          setIsSearchModalOpen(false);
+                        }}
+                        className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
+                      >
+                        <span className="font-semibold mr-2">{w.name}</span>
+                        <span className="text-[10px] text-neutral-500">{w.location}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {globalSearchResult &&
+                globalSearchResult.customers.length === 0 &&
+                globalSearchResult.items.length === 0 &&
+                globalSearchResult.salesOrders.length === 0 &&
+                globalSearchResult.purchaseOrders.length === 0 &&
+                globalSearchResult.afterSalesCases.length === 0 &&
+                globalSearchResult.warehouses.length === 0 && (
+                  <div className="text-[10px] text-neutral-500 text-center py-2">
+                    未找到相关记录
+                  </div>
+                )}
+            </div>
           </div>
-        )}
-      </form>
+        </div>
+      )}
 
       {/* UDS 统一设计系统 1.0 全局设置弹窗 */}
       {isSettingsOpen && (
