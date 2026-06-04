@@ -137,6 +137,7 @@ async function seedDatabase() {
       });
 
       // 3. 初始货币
+      // Counterparty 主数据改为业务录入，不再依赖 Customer / Supplier 默认种子。
       await prisma.currency.create({
         data: { code: 'CNY', name: '人民币', symbol: '¥', isDefault: true },
       });

@@ -102,18 +102,22 @@ model GoodsMove {
 }
 
 model FinancialBill {
-  id          String   @id @default(uuid())
-  type        String   // "RECEIVABLE" (应收), "PAYABLE" (应付)
-  amount      Float
-  currencyId  String
-  currency    Currency @relation(fields: [currencyId], references: [id])
-  paidAmount  Float    @default(0.0)
-  status      String   // "UNPAID" (未收付), "PARTIAL" (部分收付), "PAID" (已收付)
-  partner     String   // 客户或供应商名称
-  description String?
-  dueDate     DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                       String                  @id @default(uuid())
+  type                     String                  // "RECEIVABLE" (应收), "PAYABLE" (应付)
+  amount                   Float
+  currencyId               String
+  currency                 Currency                @relation(fields: [currencyId], references: [id])
+  paidAmount               Float                   @default(0.0)
+  status                   String                  // "UNPAID" (未收付), "PARTIAL" (部分收付), "PAID" (已收付)
+  counterpartyId           String
+  counterparty             Counterparty            @relation(fields: [counterpartyId], references: [id])
+  counterpartyNameSnapshot String
+  sourceType               String                  @default("MANUAL") // "MANUAL", "SALES_ORDER", "PURCHASE_ORDER"
+  sourceId                 String?
+  description              String?
+  dueDate                  DateTime
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
 }
 
 model PaymentAccount {
@@ -143,70 +147,64 @@ model AccountTransaction {
   createdAt        DateTime       @default(now())
 }
 
-model Customer {
-  id          String       @id @default(uuid())
-  code        String       @unique // 自动生成 CUST-001 格式
-  name        String       @unique
-  phone       String?
-  email       String?
-  address     String?
-  salesOrders SalesOrder[]
-  afterSales  AfterSalesCase[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model SalesOrder {
-  id         String   @id @default(uuid())
-  orderNo    String   @unique // 自动生成 SO-001 格式
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  itemId     String
-  item       Item     @relation(fields: [itemId], references: [id])
-  qty        Int
-  price      Float
-  totalPrice Float
-  currencyId String
-  currency   Currency @relation(fields: [currencyId], references: [id])
-  status     String   // "DRAFT", "ACTIVE", "SHIPPED", "CLOSED"
-  orderDate  DateTime @default(now())
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  afterSales AfterSalesCase[]
-}
-
-model Supplier {
+model Counterparty {
   id             String          @id @default(uuid())
-  code           String          @unique // 自动生成 SUPP-001 格式
+  code           String          @unique
   name           String          @unique
-  contactPerson  String?         // 联系人
+  normalizedName String          @unique
+  contactPerson  String?
   phone          String?
   email          String?
   address        String?
   remarks        String?
+  isCustomer     Boolean         @default(false)
+  isSupplier     Boolean         @default(false)
+  isActive       Boolean         @default(true)
+  salesOrders    SalesOrder[]
   purchaseOrders PurchaseOrder[]
+  financialBills FinancialBill[]
+  afterSales     AfterSalesCase[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
 
+model SalesOrder {
+  id             String       @id @default(uuid())
+  orderNo        String       @unique // 自动生成 SO-001 格式
+  counterpartyId String
+  counterparty   Counterparty @relation(fields: [counterpartyId], references: [id], onDelete: Restrict)
+  itemId         String
+  item           Item         @relation(fields: [itemId], references: [id])
+  qty            Int
+  price          Float
+  totalPrice     Float
+  currencyId     String
+  currency       Currency     @relation(fields: [currencyId], references: [id])
+  status         String       // "DRAFT", "ACTIVE", "SHIPPED", "CLOSED"
+  orderDate      DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  afterSales     AfterSalesCase[]
+}
+
 model PurchaseOrder {
-  id           String    @id @default(uuid())
-  orderNo      String    @unique // 自动生成 PO-001 格式
-  supplierId   String
-  supplier     Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  itemId       String
-  item         Item      @relation(fields: [itemId], references: [id])
-  qty          Int
-  price        Float     // 采购单价
-  totalPrice   Float     // 总价
-  currencyId   String
-  currency     Currency  @relation(fields: [currencyId], references: [id])
-  status       String    // "DRAFT" (草稿), "CONFIRMED" (已确认), "RECEIVED" (已收货), "CLOSED" (已关闭)
-  expectedDate DateTime? // 期望到货日期
-  receivedQty  Int       @default(0) // 已收货数量
-  orderDate    DateTime  @default(now())
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id             String       @id @default(uuid())
+  orderNo        String       @unique // 自动生成 PO-001 格式
+  counterpartyId String
+  counterparty   Counterparty @relation(fields: [counterpartyId], references: [id], onDelete: Restrict)
+  itemId         String
+  item           Item         @relation(fields: [itemId], references: [id])
+  qty            Int
+  price          Float        // 采购单价
+  totalPrice     Float        // 总价
+  currencyId     String
+  currency       Currency     @relation(fields: [currencyId], references: [id])
+  status         String       // "DRAFT" (草稿), "CONFIRMED" (已确认), "RECEIVED" (已收货), "CLOSED" (已关闭)
+  expectedDate   DateTime?    // 期望到货日期
+  receivedQty    Int          @default(0) // 已收货数量
+  orderDate      DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
 
 model Currency {
@@ -282,8 +280,8 @@ model AuditLog {
 model AfterSalesCase {
   id                      String      @id @default(uuid())
   receivedDate            DateTime
-  customerId              String
-  customer                Customer    @relation(fields: [customerId], references: [id])
+  counterpartyId          String
+  counterparty            Counterparty @relation(fields: [counterpartyId], references: [id])
   customerAddressSnapshot String?
   shipmentTrackingNumber  String?
   itemId                  String
