@@ -17,8 +17,9 @@ model Role {
   canAccessFinance   Boolean  @default(false)
   canAccessProducts  Boolean  @default(false)
   canAccessSales     Boolean  @default(false)
-  canAccessPurchase  Boolean  @default(false)
-  canAccessAssembly  Boolean  @default(false)
+  canAccessAfterSales Boolean @default(false)
+  canAccessPurchase   Boolean @default(false)
+  canAccessAssembly   Boolean @default(false)
   canAccessAudit     Boolean  @default(false)
   canViewCost        Boolean  @default(false) // 是否可查看成本价、库存价值等敏感金额
   canViewSalesPrice  Boolean  @default(false) // 是否可查看销售单价/销售金额
@@ -36,6 +37,7 @@ model User {
   goodsMoves   GoodsMove[]
   assemblyLogs AssemblyLog[]
   auditLogs    AuditLog[]
+  afterSales   AfterSalesCase[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -64,6 +66,7 @@ model Item {
   bomComponents  BomComponent[]  @relation("ParentItem")
   usedInBoms     BomComponent[]  @relation("ComponentItem")
   assemblyLogs   AssemblyLog[]
+  afterSales     AfterSalesCase[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 }
@@ -75,6 +78,7 @@ model Warehouse {
   description    String?
   incomingMoves  GoodsMove[]   @relation("IncomingMoves")
   outgoingMoves  GoodsMove[]   @relation("OutgoingMoves")
+  afterSales     AfterSalesCase[]
   assemblyLogs   AssemblyLog[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -93,6 +97,7 @@ model GoodsMove {
   userId          String
   user            User       @relation(fields: [userId], references: [id])
   remarks         String?
+  afterSalesCases AfterSalesCase[]
   createdAt       DateTime   @default(now())
 }
 
@@ -146,6 +151,7 @@ model Customer {
   email       String?
   address     String?
   salesOrders SalesOrder[]
+  afterSales  AfterSalesCase[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -166,6 +172,7 @@ model SalesOrder {
   orderDate  DateTime @default(now())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  afterSales AfterSalesCase[]
 }
 
 model Supplier {
@@ -270,4 +277,31 @@ model AuditLog {
   @@index([createdAt])
   @@index([userId])
   @@index([resource])
+}
+
+model AfterSalesCase {
+  id                      String      @id @default(uuid())
+  receivedDate            DateTime
+  customerId              String
+  customer                Customer    @relation(fields: [customerId], references: [id])
+  customerAddressSnapshot String?
+  shipmentTrackingNumber  String?
+  itemId                  String
+  item                    Item        @relation(fields: [itemId], references: [id])
+  qty                     Int         @default(1)
+  salesOrderId            String?
+  salesOrder              SalesOrder? @relation(fields: [salesOrderId], references: [id])
+  warehouseId             String?
+  warehouse               Warehouse?  @relation(fields: [warehouseId], references: [id])
+  goodsMoveId             String?
+  goodsMove               GoodsMove?  @relation(fields: [goodsMoveId], references: [id])
+  type                    String      // "REPAIR" (返修), "RETURN" (退货), "EXCHANGE" (换货)
+  processedDate           DateTime?
+  shipBackAddress         String?
+  note                    String?
+  handlerId               String?
+  handler                 User?       @relation(fields: [handlerId], references: [id])
+  status                  String      @default("PENDING") // "PENDING", "IN_PROGRESS", "DONE", "CLOSED"
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
 }

@@ -15,6 +15,7 @@ import goodsMovesRoutes from './routes/goodsMoves.routes.js';
 import financeRoutes from './routes/finance.routes.js';
 import purchaseRoutes from './routes/purchase.routes.js';
 import salesRoutes from './routes/sales.routes.js';
+import afterSalesRoutes from './routes/afterSales.routes.js';
 import unitsRoutes from './routes/units.routes.js';
 import devRoutes from './routes/dev.routes.js';
 import auditRoutes from './routes/audit.routes.js';
@@ -47,6 +48,7 @@ async function seedDatabase() {
           canAccessFinance: true,
           canAccessProducts: true,
           canAccessSales: true,
+          canAccessAfterSales: true,
           canAccessPurchase: true,
           canAccessAssembly: true,
           canAccessAudit: true,
@@ -63,6 +65,7 @@ async function seedDatabase() {
           canAccessGoods: true,
           canAccessFinance: false,
           canAccessProducts: false,
+          canAccessAfterSales: true,
           canViewCost: false,
           canViewSalesPrice: false,
         },
@@ -76,8 +79,45 @@ async function seedDatabase() {
           canAccessGoods: false,
           canAccessFinance: true,
           canAccessProducts: false,
+          canAccessAfterSales: false,
           canViewCost: true,
           canViewSalesPrice: true,
+        },
+      });
+
+      const salesRole = await prisma.role.create({
+        data: {
+          name: '业务',
+          canAccessUsers: false,
+          canAccessWarehouse: false,
+          canAccessGoods: false,
+          canAccessFinance: false,
+          canAccessProducts: false,
+          canAccessSales: true,
+          canAccessAfterSales: true,
+          canAccessPurchase: false,
+          canAccessAssembly: false,
+          canAccessAudit: false,
+          canViewCost: false,
+          canViewSalesPrice: true,
+        },
+      });
+
+      const serviceRole = await prisma.role.create({
+        data: {
+          name: '客服',
+          canAccessUsers: false,
+          canAccessWarehouse: false,
+          canAccessGoods: false,
+          canAccessFinance: false,
+          canAccessProducts: false,
+          canAccessSales: false,
+          canAccessAfterSales: true,
+          canAccessPurchase: false,
+          canAccessAssembly: false,
+          canAccessAudit: false,
+          canViewCost: false,
+          canViewSalesPrice: false,
         },
       });
 
@@ -124,6 +164,7 @@ app.use('/api/goods-moves', goodsMovesRoutes);
 app.use('/api', financeRoutes);         // /api/finance, /api/payment-accounts, /api/currencies
 app.use('/api', purchaseRoutes);        // /api/suppliers, /api/purchase-orders
 app.use('/api', salesRoutes);           // /api/customers, /api/sales-orders
+app.use('/api', afterSalesRoutes);      // /api/after-sales
 app.use('/api/dev', devRoutes);
 app.use('/api/audit', auditRoutes);
 

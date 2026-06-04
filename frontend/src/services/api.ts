@@ -200,6 +200,17 @@ export const salesOrdersApi = {
     request(`/sales-orders/${id}/create-bill`, { method: 'POST' }),
 };
 
+// --- After Sales ---
+export const afterSalesApi = {
+  list: () => request<any[]>('/after-sales'),
+  create: (data: any) =>
+    request('/after-sales', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: any) =>
+    request(`/after-sales/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request(`/after-sales/${id}`, { method: 'DELETE' }),
+};
+
 // --- Assembly ---
 export const assemblyApi = {
   check: (data: { assembledItemId: string; quantity: number; warehouseId: string }) =>

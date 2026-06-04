@@ -83,6 +83,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
         canAccessFinance: isSystemAdmin ? true : role.canAccessFinance,
         canAccessProducts: isSystemAdmin ? true : role.canAccessProducts,
         canAccessSales: isSystemAdmin ? true : role.canAccessSales,
+        canAccessAfterSales: isSystemAdmin ? true : (role as any).canAccessAfterSales ?? false,
         canAccessPurchase: isSystemAdmin ? true : role.canAccessPurchase,
         canAccessAssembly: isSystemAdmin ? true : role.canAccessAssembly,
         canViewCost: isSystemAdmin ? true : role.canViewCost,

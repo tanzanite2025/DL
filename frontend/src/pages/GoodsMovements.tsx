@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsBadge, UdsInput } from '../components/uds/UdsComponents';
 import { SecureMoney } from '../components/common/SecureMoney';
 import { AuditLogModal } from '../components/uds/AuditLogModal';
@@ -9,6 +9,7 @@ import { Item, Warehouse, GoodsMove, StockMatrixRow, ShowToast } from '../types'
 import { useItems } from '../hooks/useItems';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { useGoodsMoves } from '../hooks/useGoodsMoves';
+import { useLocation } from 'react-router-dom';
 
 interface GoodsMovementsProps {
   token: string;
@@ -18,6 +19,10 @@ interface GoodsMovementsProps {
 
 export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, showToast, canViewCost }) => {
   const { t } = useI18n();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const highlightedMoveId = params.get('moveId');
+  const highlightedRowRef = useRef<HTMLTableRowElement | null>(null);
   const { items, isLoading: itemsLoading, fetchItems } = useItems();
   const { warehouses, isLoading: whLoading, fetchWarehouses } = useWarehouses();
   const { moves, isLoading: movesLoading, fetchMoves, deleteMove } = useGoodsMoves();
@@ -81,6 +86,16 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
       calculateStockMatrix(items, warehouses, moves);
     }
   }, [isLoading, items, warehouses, moves]);
+
+  useEffect(() => {
+    if (!highlightedMoveId) return;
+    if (!moves.length) return;
+
+    // 等 DOM 渲染完成后滚动到对应行
+    if (highlightedRowRef.current) {
+      highlightedRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightedMoveId, moves.length]);
 
   const fetchData = async () => {
     await Promise.all([fetchItems(), fetchWarehouses(), fetchMoves()]);
@@ -353,11 +368,18 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
                   </tr>
                 </thead>
                 <tbody>
-                  {moves.map((move) => (
-                    <tr
-                      key={move.id}
-                      className="border-b border-solid border-white/5 hover:bg-white/2 transition-all text-xs"
-                    >
+                  {moves.map((move) => {
+                    const isHighlighted = highlightedMoveId === move.id;
+                    return (
+                      <tr
+                        key={move.id}
+                        ref={isHighlighted ? highlightedRowRef : null}
+                        className={`border-b border-solid text-xs transition-all ${
+                          isHighlighted
+                            ? 'border-emerald-500/60 bg-emerald-500/10'
+                            : 'border-white/5 hover:bg-white/2'
+                        }`}
+                      >
                       <td className="py-3.5 pl-2 text-[9px] font-mono text-neutral-500">
                         {new Date(move.createdAt).toLocaleString('zh-CN', {
                           month: 'numeric',
@@ -430,7 +452,8 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                   {moves.length === 0 && (
                     <tr>
                       <td colSpan={5} className="text-center py-6 text-[10px] font-mono text-neutral-600">

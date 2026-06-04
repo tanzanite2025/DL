@@ -7,6 +7,7 @@ import { ProductsManagement } from './pages/ProductsManagement';
 import { GoodsMovements } from './pages/GoodsMovements';
 import { FinanceARAP } from './pages/FinanceARAP';
 import { SalesManagement } from './pages/SalesManagement';
+import { AfterSalesManagement } from './pages/AfterSalesManagement';
 import { ProcurementManagement } from './pages/ProcurementManagement';
 import { useI18n } from './i18n/I18nContext';
 import { ToastMessage, UserPermission, ShowToast } from './types';
@@ -94,7 +95,13 @@ function DashboardShell({
       label: t('salesMenu'),
       icon: <ShoppingBag size={16} />,
       allowed: userPermission?.canAccessSales ?? false
-    }
+    },
+    {
+      path: '/after-sales',
+      label: '售后管理',
+      icon: <ShoppingBag size={16} />,
+      allowed: userPermission?.canAccessAfterSales ?? false
+    },
   ];
 
   const allowedMenuItems = menuItems.filter(item => item.allowed);
@@ -268,6 +275,12 @@ function DashboardShell({
               element={<SalesManagement token={token} showToast={showToast} />}
             />
           )}
+          {userPermission?.canAccessAfterSales && (
+            <Route
+              path="/after-sales"
+              element={<AfterSalesManagement token={token} showToast={showToast} />}
+            />
+          )}
           
           {/* 降级捕获：如果用户尝试通过 URL 越权访问，展示大声报错页面 */}
           <Route
@@ -437,6 +450,7 @@ export default function App() {
         canAccessGoods: data.role.canAccessGoods,
         canAccessFinance: data.role.canAccessFinance,
         canAccessSales: data.role.canAccessSales ?? false,
+        canAccessAfterSales: data.role.canAccessAfterSales ?? false,
         canAccessPurchase: data.role.canAccessPurchase ?? false,
         canAccessAssembly: data.role.canAccessAssembly ?? false,
         canViewCost: data.role.canViewCost ?? false,

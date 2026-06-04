@@ -164,6 +164,7 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
       canAccessGoods: value,
       canAccessFinance: value,
       canAccessSales: value,
+      canAccessAfterSales: value,
       canAccessPurchase: value,
       canAccessAssembly: value,
       canViewCost: value,
@@ -379,6 +380,9 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                       {t('permissionSales')}
                     </th>
                     <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
+                      售后管理
+                    </th>
+                    <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
                       {t('permissionPurchase')}
                     </th>
                     <th className="text-[9px] font-black uppercase tracking-wider text-neutral-500 pb-3 text-center whitespace-pre-line leading-tight px-1">
@@ -456,6 +460,14 @@ export const UsersPermissions: React.FC<UsersPermissionsProps> = ({
                           type="checkbox"
                           checked={role.canAccessSales}
                           onChange={() => handleTogglePermission(role.id, 'canAccessSales')}
+                          className="h-4 w-4 rounded border-dashed border-neutral-700 bg-neutral-900 text-white focus:ring-0 cursor-pointer accent-white"
+                        />
+                      </td>
+                      <td className="py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={(role as any).canAccessAfterSales ?? false}
+                          onChange={() => handleTogglePermission(role.id, 'canAccessAfterSales' as any)}
                           className="h-4 w-4 rounded border-dashed border-neutral-700 bg-neutral-900 text-white focus:ring-0 cursor-pointer accent-white"
                         />
                       </td>

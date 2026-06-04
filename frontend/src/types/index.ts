@@ -13,6 +13,7 @@ export interface Role {
   canAccessGoods: boolean;
   canAccessFinance: boolean;
   canAccessSales: boolean;
+  canAccessAfterSales: boolean;
   canAccessPurchase: boolean;
   canAccessAssembly: boolean;
   canViewCost: boolean;
@@ -35,6 +36,7 @@ export interface UserPermission {
   canAccessGoods: boolean;
   canAccessFinance: boolean;
   canAccessSales: boolean;
+   canAccessAfterSales: boolean;
   canAccessPurchase: boolean;
   canAccessAssembly: boolean;
   canViewCost: boolean;
@@ -209,6 +211,34 @@ export interface SalesOrder {
   currency?: Currency;
   status: 'DRAFT' | 'ACTIVE' | 'SHIPPED' | 'CLOSED';
   orderDate: string;
+}
+
+// --- 售后单 ---
+export interface AfterSalesCase {
+  id: string;
+  receivedDate: string;
+  customerId: string;
+  customer: Customer;
+  customerAddressSnapshot: string | null;
+  itemId: string;
+  item: Item;
+  qty: number;
+  salesOrderId: string | null;
+  salesOrder?: SalesOrder | null;
+  warehouseId: string | null;
+  warehouse?: Warehouse | null;
+  shipmentTrackingNumber: string | null;
+  goodsMoveId: string | null;
+  goodsMove?: GoodsMove | null;
+  type: 'REPAIR' | 'RETURN' | 'EXCHANGE';
+  processedDate: string | null;
+  shipBackAddress: string | null;
+  note: string | null;
+  handlerId: string | null;
+  handlerName?: string | null;
+  status: 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'CLOSED';
+  createdAt: string;
+  updatedAt: string;
 }
 
 // --- 通用 ---
