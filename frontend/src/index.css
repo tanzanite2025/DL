@@ -17,11 +17,16 @@
 }
 
 @layer base {
-  body,
+  /* 默认使用浅色主题，除非显式设置 data-theme="dark" */
+  body {
+    background-color: var(--color-bg-light);
+    color: var(--color-text-dark);
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
   [data-theme='dark'] body {
     background-color: #09090b;
     color: #f3f4f6;
-    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   body.theme-light,
