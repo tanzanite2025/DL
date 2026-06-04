@@ -2,44 +2,59 @@
 
 ## Summary
 
-This design replaces separate customer and supplier master records with a single unified `Counterparty` model. A counterparty represents the real-world company or person that the business transacts with, while role flags determine whether that party participates in sales, procurement, or both.
+This design replaces separate customer and supplier master records with one unified `Counterparty` model. A counterparty represents the real-world company or person that the business transacts with, and a single `roleType` field determines whether that party participates in sales, procurement, or both.
 
-The goal is to make finance, sales, procurement, and after-sales reference the same business identity from day one. This removes name-based guesswork, supports a company being both a customer and a supplier, and makes cross-module ledger visibility reliable.
+The project is still new and has no legacy production data, so phase 1 should optimize for a clean domain model rather than compatibility layers. The goal is to make finance, sales, procurement, and after-sales reference the same business identity from day one, while preventing duplicate names and keeping the role model simple.
 
 ## Goals
 
-- Establish one source of truth for customer/supplier identity.
+- Establish one source of truth for customer and supplier identity.
 - Allow a single counterparty to be both a customer and a supplier.
+- Prevent duplicate names at both display and normalized levels.
 - Make finance search, AR/AP ledger views, and source tracing operate on entity IDs instead of free-text names.
 - Reuse one create/edit flow for both customer and supplier entry points.
-- Keep phase 1 implementation focused enough for one plan and one delivery stream.
 
 ## Non-Goals
 
 - Automatic deduplication or fuzzy name matching.
+- Legacy data migration tooling for old production datasets.
 - A separate counterparty administration center page.
 - Role-specific profile tables such as `CustomerProfile` or `SupplierProfile`.
-- Legacy data migration tooling beyond what is needed to move the current new-system dataset to the new schema.
 - Advanced relationship graphs, parent-child organizations, or multi-branch entity modeling.
 
 ## Current State
 
-Today the system stores `Customer` and `Supplier` as separate tables. Sales orders point to customers, purchase orders point to suppliers, and financial bills store a free-text `partner` string. This makes the following cases unreliable:
+Today the system stores `Customer` and `Supplier` as separate tables. Sales orders point to customers, purchase orders point to suppliers, and financial bills still depend on partner-name semantics in part of the design. This creates avoidable duplication and makes it too easy for one company to exist in two places.
 
-- One company that appears in both sales and procurement creates two separate identities.
-- Finance cannot safely show a complete AR/AP position for that company without guessing by name.
-- Similar names can be confused, while true same-entity records can remain split.
+Because this is a new project without real legacy data, we can replace that split model directly instead of designing merge rules, staged backfills, or compatibility shims.
 
-Because the system is still early, we can correct the model at the foundation instead of adding a later reconciliation layer.
+## Approaches Considered
+
+### Recommended: One `roleType` field
+
+Store roles in one field on `Counterparty`:
+
+- `CUSTOMER`
+- `SUPPLIER`
+- `BOTH`
+
+This keeps the data model explicit and matches the product language of a single "role field". It also maps naturally from the UI: selecting one checkbox sets `CUSTOMER` or `SUPPLIER`, and selecting both sets `BOTH`.
+
+### Alternative: Two booleans
+
+Use `isCustomer` and `isSupplier`.
+
+This works functionally, but it spreads one concept across two fields and is less aligned with the product decision to treat role as one explicit property.
+
+### Alternative: Separate role table
+
+Model roles through a join table such as `CounterpartyRole`.
+
+This is more flexible than needed for phase 1 and would add complexity without solving a real current problem.
 
 ## Recommended Approach
 
-Use one unified `Counterparty` table with simple role flags:
-
-- `isCustomer`
-- `isSupplier`
-
-This is the lightest design that still gives us a clean identity model. It is simpler than maintaining a parent `Counterparty` plus separate customer/supplier profile tables, while remaining much safer than trying to link or merge two separate master tables later.
+Use one unified `Counterparty` table with a required `roleType` field and strict name uniqueness. The system should not allow duplicate `name` values, and it should also enforce uniqueness on `normalizedName` so case-only or whitespace-only variants are rejected.
 
 ## Domain Model
 
@@ -53,23 +68,30 @@ Suggested fields:
 - `code`
 - `name`
 - `normalizedName`
+- `roleType`
 - `contactPerson`
 - `phone`
 - `email`
 - `address`
 - `remarks`
-- `isCustomer`
-- `isSupplier`
 - `isActive`
 - `createdAt`
 - `updatedAt`
 
+### Role Field
+
+`roleType` is a required string or enum-like value with these phase 1 values:
+
+- `CUSTOMER`
+- `SUPPLIER`
+- `BOTH`
+
 ### Field Notes
 
-- `code` should use a unified series such as `CP-0001`.
-- `name` is the user-facing legal or trading name.
-- `normalizedName` supports exact duplicate prevention and search normalization.
-- `isCustomer` and `isSupplier` define the roles visible in each module.
+- `code` should use a unified sequence such as `CP-0001`.
+- `name` is the user-facing legal or trading name and must be unique.
+- `normalizedName` is derived from `name`, normalizes case and whitespace, and must also be unique.
+- `roleType` defines module visibility and validation.
 - `isActive` should be used for phase 1 retirement instead of hard deletion when records are referenced.
 
 ## Schema Changes
@@ -86,7 +108,7 @@ Suggested fields:
 
 ### Finance Changes
 
-Replace free-text partner storage with:
+Replace free-text or name-based partner handling with:
 
 - `FinancialBill.counterpartyId`
 - `FinancialBill.counterpartyNameSnapshot`
@@ -105,43 +127,38 @@ Replace free-text partner storage with:
 
 ### Role Rules
 
-- A counterparty must have at least one role selected.
-- Sales flows can only select counterparties where `isCustomer = true`.
-- Procurement flows can only select counterparties where `isSupplier = true`.
+- Every counterparty must have exactly one `roleType` value.
+- Sales flows can only select counterparties whose `roleType` is `CUSTOMER` or `BOTH`.
+- Procurement flows can only select counterparties whose `roleType` is `SUPPLIER` or `BOTH`.
+- After-sales flows can only select counterparties whose `roleType` is `CUSTOMER` or `BOTH`.
 - Finance flows can select any active counterparty, because either role may participate in receivables or payables.
 
 ### Name Rules
 
-- `Counterparty.name` is required.
-- `Counterparty.normalizedName` must be unique in phase 1.
+- `Counterparty.name` is required and unique.
+- `Counterparty.normalizedName` is required and unique.
 - Phase 1 duplicate handling is strict exact-match normalization, not fuzzy matching.
-- If a new record collides with an existing normalized name, the system should guide the user to edit the existing counterparty and add the missing role instead of creating a duplicate.
+- If a new record collides with an existing normalized name, the system should reject creation and direct the user to update the existing counterparty instead.
 
 ### Deletion and Deactivation Rules
 
 - If a counterparty is referenced by sales orders, purchase orders, after-sales cases, or financial bills, hard deletion is blocked.
 - Phase 1 should prefer deactivation (`isActive = false`) over destructive deletion.
-- A role cannot be removed if existing business records still depend on that role. For example, `isCustomer` cannot be turned off while sales or after-sales records exist for that counterparty.
+- Changing `roleType` must be blocked when the new role would invalidate existing records. For example, a counterparty with sales orders cannot be changed from `BOTH` or `CUSTOMER` to `SUPPLIER`.
 
 ## User Flows
 
 ### Create from Sales
 
-When the user clicks "New Customer", the system opens the shared counterparty form with:
+When the user clicks "New Customer", the system opens the shared counterparty form with customer role preselected.
 
-- `isCustomer = true` preselected
-- `isSupplier = false` by default
-
-The user may optionally enable supplier role in the same flow.
+If the user only selects customer role, the saved value is `CUSTOMER`. If the user selects both customer and supplier, the saved value is `BOTH`.
 
 ### Create from Procurement
 
-When the user clicks "New Supplier", the system opens the same shared form with:
+When the user clicks "New Supplier", the system opens the same shared form with supplier role preselected.
 
-- `isSupplier = true` preselected
-- `isCustomer = false` by default
-
-The user may optionally enable customer role in the same flow.
+If the user only selects supplier role, the saved value is `SUPPLIER`. If the user selects both customer and supplier, the saved value is `BOTH`.
 
 ### Shared Form Fields
 
@@ -153,21 +170,21 @@ The user may optionally enable customer role in the same flow.
 - Remarks
 - Role selection: customer, supplier
 
-Editing a customer or supplier should open the same unified counterparty form. The system should stop presenting separate "customer master" and "supplier master" creation models as independent truths.
+The UI may present two checkboxes for input, but the persisted backend field is one `roleType` value. Editing a customer or supplier should open the same unified counterparty form.
 
 ## Module Behavior
 
 ### Sales
 
-- The sales customer list becomes a filtered counterparty list where `isCustomer = true`.
-- Sales order create/edit flows select a `counterpartyId`.
-- Sales order validation rejects non-customer counterparties in both frontend and backend.
+- The sales customer list becomes a filtered counterparty list where `roleType IN ('CUSTOMER', 'BOTH')`.
+- Sales order create and edit flows select a `counterpartyId`.
+- Sales order validation rejects counterparties that do not have customer capability.
 
 ### Procurement
 
-- The supplier list becomes a filtered counterparty list where `isSupplier = true`.
-- Purchase order create/edit flows select a `counterpartyId`.
-- Procurement validation rejects non-supplier counterparties in both frontend and backend.
+- The supplier list becomes a filtered counterparty list where `roleType IN ('SUPPLIER', 'BOTH')`.
+- Purchase order create and edit flows select a `counterpartyId`.
+- Procurement validation rejects counterparties that do not have supplier capability.
 
 ### Finance
 
@@ -178,7 +195,7 @@ Editing a customer or supplier should open the same unified counterparty form. T
 The phase 1 counterparty ledger modal should show:
 
 - Counterparty name
-- Role badges: customer, supplier
+- Role badge based on `roleType`
 - Accounts receivable summary
 - Accounts payable summary
 - Net position
@@ -197,7 +214,7 @@ Each related financial bill row should show:
 ### After-Sales
 
 - After-sales customer references move to `counterpartyId`.
-- After-sales create/edit flows may only select counterparties with customer role.
+- After-sales create and edit flows may only select counterparties with customer capability.
 
 ## API Design
 
@@ -216,9 +233,20 @@ Each related financial bill row should show:
 
 ### Payload Expectations
 
-All module create/edit APIs that currently accept `customerId`, `supplierId`, or finance `partner` input should be updated to use `counterpartyId` and server-side role validation.
+Counterparty create and update payloads should use:
 
-Finance create/edit APIs should also manage:
+- `name`
+- `roleType`
+- `contactPerson`
+- `phone`
+- `email`
+- `address`
+- `remarks`
+- `isActive`
+
+All module create and edit APIs that currently accept `customerId`, `supplierId`, or finance `partner` input should be updated to use `counterpartyId` and server-side role validation.
+
+Finance create and edit APIs should also manage:
 
 - `counterpartyNameSnapshot`
 - `sourceType`
@@ -255,7 +283,7 @@ These components and hooks should become the common layer used by sales, procure
   - Add counterparty search
   - Add unified ledger modal
 - `AfterSalesManagement` or equivalent page
-  - Replace customer-specific references with customer-role counterparties
+  - Replace customer-specific references with customer-capable counterparties
 
 ## Search and Ledger Behavior
 
@@ -272,25 +300,25 @@ Phase 1 should sort related records by business date descending unless a more sp
 
 ## Error Handling
 
-- Reject creation of a sales order when the selected counterparty does not have customer role.
-- Reject creation of a purchase order when the selected counterparty does not have supplier role.
+- Reject creation of a sales order when the selected counterparty does not have customer capability.
+- Reject creation of a purchase order when the selected counterparty does not have supplier capability.
 - Reject finance bill submission when the selected counterparty does not exist or is inactive.
 - Reject hard deletion when the counterparty is referenced anywhere.
-- Reject role removal when dependent records still exist.
+- Reject `roleType` changes that would invalidate existing linked records.
 - Return explicit user-facing error messages that explain why the action is blocked and what the user should do next.
 
 ## Migration Strategy
 
-Because the system is still early, phase 1 can take a direct migration path instead of building long-lived compatibility layers.
+Because this is a new project with no real legacy business data, phase 1 should use a clean replacement strategy instead of a compatibility migration strategy.
 
 Migration principles:
 
 - Introduce `Counterparty` as the canonical table.
-- Move existing customer and supplier references to counterparties.
-- Convert free-text finance partner data into explicit counterparty references wherever possible during migration.
+- Replace customer and supplier foreign keys with `counterpartyId`.
+- Replace finance partner-name input with explicit counterparty references.
 - Remove obsolete frontend assumptions that customers and suppliers are different master record types.
 
-This migration should still preserve history and should not rely on fuzzy matching. If ambiguous records exist, they should be resolved explicitly, not auto-merged.
+No automatic merge logic, fuzzy matching, or legacy conflict resolution flow is required for phase 1.
 
 ## Testing Strategy
 
@@ -299,10 +327,11 @@ This migration should still preserve history and should not rely on fuzzy matchi
 Test:
 
 - counterparty CRUD
-- role filtering
-- duplicate prevention via normalized name
+- role filtering by `roleType`
+- duplicate prevention via `name` and `normalizedName`
 - sales role validation
 - procurement role validation
+- after-sales role validation
 - finance counterparty validation
 - ledger aggregation output
 - deletion and deactivation safety rules
@@ -311,8 +340,9 @@ Test:
 
 Test:
 
-- shared counterparty form create/edit behavior
-- role preselection from sales/procurement entry points
+- shared counterparty form create and edit behavior
+- role preselection from sales and procurement entry points
+- conversion of checkbox input to persisted `roleType`
 - filtered lists in sales and procurement
 - counterparty picker behavior
 - finance search and ledger modal rendering
@@ -322,7 +352,7 @@ Test:
 
 Verify these scenarios end to end:
 
-- One counterparty marked as both customer and supplier appears correctly in both modules.
+- One counterparty marked as `BOTH` appears correctly in both sales and procurement.
 - Finance ledger for a dual-role counterparty shows AR, AP, net position, and related documents together.
 - Changing a counterparty name does not break historical finance display because snapshot data remains stable.
 
@@ -340,8 +370,15 @@ Mitigation:
 
 Mitigation:
 
-- Centralize shared counterparty behavior in common form/picker/modal primitives.
+- Centralize shared counterparty behavior in common form, picker, and modal primitives.
 - Update each page to consume the same identity model instead of adding page-specific workarounds.
+
+### Risk: Inconsistent role mapping between UI and persistence
+
+Mitigation:
+
+- Define one shared mapping between checkbox input and `roleType`.
+- Cover that mapping in both frontend and backend tests.
 
 ### Risk: Historical display drift after renaming
 
@@ -363,8 +400,9 @@ Mitigation:
 These are fixed decisions for implementation planning, not open questions:
 
 - The system will use one unified `Counterparty` table.
-- Roles will be stored as `isCustomer` and `isSupplier`.
-- Sales and procurement entry points will open the same shared create/edit form.
+- Roles will be stored as one `roleType` field.
+- `Counterparty.name` and `Counterparty.normalizedName` must both be unique.
+- Sales and procurement entry points will open the same shared create and edit form.
 - Finance will search and reference counterparties by ID, not partner name.
 - The first delivery will cover sales, procurement, finance, and after-sales together.
 
@@ -372,9 +410,10 @@ These are fixed decisions for implementation planning, not open questions:
 
 The design is successful when:
 
-1. A user can create one counterparty and mark it as both customer and supplier.
+1. A user can create one counterparty and mark it as customer, supplier, or both.
 2. The same counterparty can be selected from both sales and procurement flows without duplication.
-3. Finance manual bills reference a counterparty ID instead of a free-text partner string.
-4. A finance user can search for a counterparty and open one modal showing combined AR/AP context and related records.
-5. Role validation prevents invalid selections across modules.
-6. Referenced counterparties cannot be accidentally deleted or stripped of required roles.
+3. Duplicate names, including case-only or whitespace-only variants, are rejected.
+4. Finance manual bills reference a counterparty ID instead of a free-text partner string.
+5. A finance user can search for a counterparty and open one modal showing combined AR/AP context and related records.
+6. Role validation prevents invalid selections across modules.
+7. Referenced counterparties cannot be accidentally deleted or changed to an incompatible role.
