@@ -291,14 +291,18 @@ export const GoodsMovementForm: React.FC<GoodsMovementFormProps> = ({
     }
   };
 
+  const hasNoItems = items.length === 0;
+  const hasNoWarehouses = warehouses.length === 0;
+
   return (
     <UdsCard title={title || t('registerMovement')} action={action} className={className}>
-      {items.length === 0 || warehouses.length === 0 ? (
-        <div className="p-4 rounded-xl border border-dashed border-rose-500/20 bg-rose-500/5 text-rose-500 text-[10px] font-bold uppercase tracking-wider text-center">
-          {t('noItemsOrWarehouses')}
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden gap-4 h-full">
+      <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden gap-4 h-full">
+        {(hasNoItems || hasNoWarehouses) && (
+          <div className="p-3 rounded-xl border border-dashed border-amber-500/20 bg-amber-500/5 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+            {t('noItemsOrWarehouses')}
+          </div>
+        )}
+
           {!lockItem ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch flex-1 overflow-hidden h-full">
               {/* 左列：流转控制和物料快速网格录入 */}
@@ -616,8 +620,7 @@ export const GoodsMovementForm: React.FC<GoodsMovementFormProps> = ({
               </div>
             </div>
           )}
-        </form>
-      )}
+      </form>
     </UdsCard>
   );
 };

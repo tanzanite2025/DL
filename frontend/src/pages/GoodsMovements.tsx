@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsBadge, UdsInput } from '../components/uds/UdsComponents';
 import { SecureMoney } from '../components/common/SecureMoney';
 import { AuditLogModal } from '../components/uds/AuditLogModal';
-import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
+import { GoodsMovementModal } from '../components/uds/GoodsMovementModal';
 import { useI18n } from '../i18n/I18nContext';
 import { MoveRight, RefreshCw } from 'lucide-react';
 import { Item, Warehouse, GoodsMove, StockMatrixRow, ShowToast } from '../types';
@@ -100,6 +100,15 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
   const fetchData = async () => {
     await Promise.all([fetchItems(), fetchWarehouses(), fetchMoves()]);
   };
+
+  useEffect(() => {
+    const handleGlobalMovementCreated = () => {
+      fetchData();
+    };
+
+    window.addEventListener('dalang:goods-movement-created', handleGlobalMovementCreated);
+    return () => window.removeEventListener('dalang:goods-movement-created', handleGlobalMovementCreated);
+  }, [fetchItems, fetchWarehouses, fetchMoves]);
 
   const handleDelete = async (id: string) => {
     if (window.confirm(t('voidMovementConfirm') || '确定要作废并删除这条流转记录吗？作废后库存将自动重算恢复。')) {
@@ -462,29 +471,12 @@ export const GoodsMovements: React.FC<GoodsMovementsProps> = ({ token: _token, s
         </div>
       </div>
 
-      {/* 登记货物流转 Modal 弹窗 */}
-      {isMovementModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="relative w-full w-[85vw] max-w-7xl h-[80vh] flex flex-col animate-uds-fade">
-            <GoodsMovementForm
-              className="h-full flex flex-col [&>div:last-child]:flex-1 [&>div:last-child]:flex [&>div:last-child]:flex-col [&>div:last-child]:overflow-hidden"
-              showToast={showToast}
-              onSuccess={() => {
-                fetchData();
-                setIsMovementModalOpen(false);
-              }}
-              action={
-                <button
-                  onClick={() => setIsMovementModalOpen(false)}
-                  className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-1.5 rounded-full hover:bg-white/5 transition-all text-xs"
-                >
-                  {t('cancel')}
-                </button>
-              }
-            />
-          </div>
-        </div>
-      )}
+      <GoodsMovementModal
+        isOpen={isMovementModalOpen}
+        showToast={showToast}
+        onClose={() => setIsMovementModalOpen(false)}
+        onSuccess={fetchData}
+      />
 
       {/* 浮动审计按钮：固定在页面右下角 */}
       <div className="fixed bottom-24 right-[2.5%] z-30">

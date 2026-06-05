@@ -14,6 +14,7 @@ import { ToastMessage, UserPermission, ShowToast, GlobalSearchResult } from './t
 import { authApi } from './services/api';
 import { UnitsSettingsCard } from './components/settings/UnitsSettingsCard';
 import { searchApi } from './services/api';
+import { GoodsMovementModal } from './components/uds/GoodsMovementModal';
 import { Users, Warehouse, Package,
   RefreshCw, CircleDollarSign, LogOut, Terminal,
   AlertTriangle, X,
@@ -23,7 +24,9 @@ import { Users, Warehouse, Package,
   Settings,
   Sun,
   Moon,
-  User
+  User,
+  Search,
+  ArrowLeftRight
 } from 'lucide-react';
 
 function DashboardShell({
@@ -125,20 +128,19 @@ function DashboardShell({
   const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResult | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isGlobalMovementModalOpen, setIsGlobalMovementModalOpen] = useState(false);
 
   const handleGlobalSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const q = globalSearchKeyword.trim();
     if (!q) {
       setGlobalSearchResult(null);
-      setIsSearchModalOpen(false);
       return;
     }
     setIsSearching(true);
     try {
       const res = await searchApi.globalSearch(q);
       setGlobalSearchResult(res);
-      setIsSearchModalOpen(true);
     } catch (error: any) {
       showToast(error.message || '全局搜索失败', 'error');
     } finally {
@@ -148,10 +150,11 @@ function DashboardShell({
 
   // 输入后自动触发全局搜索（简短防抖）
   useEffect(() => {
+    if (!isSearchModalOpen) return;
+
     const q = globalSearchKeyword.trim();
     if (!q) {
       setGlobalSearchResult(null);
-      setIsSearchModalOpen(false);
       return;
     }
 
@@ -161,9 +164,19 @@ function DashboardShell({
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [globalSearchKeyword]);
+  }, [globalSearchKeyword, isSearchModalOpen]);
 
   const searchCounterparties = globalSearchResult?.counterparties ?? [];
+
+  const openSearchModal = () => {
+    setIsSearchModalOpen(true);
+  };
+
+  const closeSearchModal = () => {
+    setGlobalSearchKeyword('');
+    setGlobalSearchResult(null);
+    setIsSearchModalOpen(false);
+  };
 
   return (
     <div className={`min-h-screen flex flex-col ${shellBg}`}>
@@ -350,46 +363,70 @@ function DashboardShell({
         </Routes>
       </main>
 
-      {/* 全局底部搜索条仅负责输入 */}
-      <form
-        onSubmit={handleGlobalSearch}
-        className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-4xl"
-      >
-        <div className="rounded-full bg-black/70 border border-white/10 backdrop-blur-md px-4 py-2 flex items-center gap-3 shadow-lg">
-          <span className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 shrink-0">
-            Search
-          </span>
-          <input
-            value={globalSearchKeyword}
-            onChange={(e) => setGlobalSearchKeyword(e.target.value)}
-            placeholder="搜索 客户 / 产品 / 销售单号 / 采购单号 / 售后单号 / 仓库 ..."
-            className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-neutral-600 uds-search-input"
-          />
+      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-4xl flex justify-center">
+        <div className="rounded-full bg-black/70 border border-white/10 backdrop-blur-md p-2 flex items-center gap-2 shadow-lg">
           <button
-            type="submit"
-            disabled={isSearching}
-            className="text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full bg-white text-black hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+            type="button"
+            onClick={openSearchModal}
+            className="h-11 w-11 rounded-full bg-white text-black hover:bg-neutral-200 focus:outline-none flex items-center justify-center transition-all active:scale-95"
+            title="搜索"
           >
-            {isSearching ? '搜索中...' : '搜索'}
+            <Search size={17} />
           </button>
-        </div>
-      </form>
 
-      {/* 全局搜索结果弹窗（无背景蒙版，仅悬浮面板） */}
-      {isSearchModalOpen && globalSearchResult && (
+          {userPermission?.canAccessGoods && (
+            <button
+              type="button"
+              onClick={() => setIsGlobalMovementModalOpen(true)}
+              className="h-11 w-11 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 hover:bg-emerald-500/25 focus:outline-none flex items-center justify-center transition-all active:scale-95"
+              title={t('registerMovement')}
+            >
+              <ArrowLeftRight size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <GoodsMovementModal
+        isOpen={isGlobalMovementModalOpen}
+        showToast={showToast}
+        onClose={() => setIsGlobalMovementModalOpen(false)}
+        onSuccess={() => {
+          window.dispatchEvent(new Event('dalang:goods-movement-created'));
+        }}
+      />
+
+      {/* 全局搜索弹窗 */}
+      {isSearchModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
           <div className="relative w-[80vw] max-w-[80vw] h-[85vh] bg-[#121214] rounded-[24px] border border-white/10 shadow-2xl flex flex-col pointer-events-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-3 flex-1 pr-4">
                 <h2 className="text-sm font-black uppercase tracking-tighter text-white">
-                  全局搜索结果
+                  全局搜索
                 </h2>
-                <p className="text-[9px] font-mono uppercase tracking-widest text-neutral-400">
-                  关键字：{globalSearchResult.query || globalSearchKeyword}
-                </p>
+                <form onSubmit={handleGlobalSearch} className="flex items-center gap-2">
+                  <div className="flex-1 h-11 rounded-full bg-black/40 border border-white/10 px-4 flex items-center gap-2">
+                    <Search size={14} className="text-neutral-500 shrink-0" />
+                    <input
+                      value={globalSearchKeyword}
+                      onChange={(e) => setGlobalSearchKeyword(e.target.value)}
+                      placeholder="搜索 客户 / 产品 / 销售单号 / 采购单号 / 售后单号 / 仓库 ..."
+                      className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder-neutral-600 uds-search-input"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSearching}
+                    className="h-11 px-4 rounded-full bg-white text-black hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none text-[10px] font-black uppercase tracking-widest"
+                  >
+                    {isSearching ? '搜索中...' : '搜索'}
+                  </button>
+                </form>
               </div>
               <button
-                onClick={() => setIsSearchModalOpen(false)}
+                onClick={closeSearchModal}
                 className="text-neutral-400 hover:text-white shrink-0 cursor-pointer p-2 rounded-full hover:bg-white/5 transition-all"
               >
                 <X size={14} />
@@ -397,7 +434,23 @@ function DashboardShell({
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-3 text-xs text-neutral-100 space-y-3">
-              {searchCounterparties.length > 0 && (
+              {!globalSearchKeyword.trim() && (
+                <div className="h-full flex items-center justify-center text-center">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500">
+                    输入关键字开始搜索
+                  </span>
+                </div>
+              )}
+
+              {globalSearchKeyword.trim() && isSearching && (
+                <div className="h-full flex items-center justify-center text-center">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-500 animate-pulse">
+                    搜索中...
+                  </span>
+                </div>
+              )}
+
+              {globalSearchKeyword.trim() && !isSearching && globalSearchResult && searchCounterparties.length > 0 && (
                 <div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
                     客户
@@ -409,7 +462,7 @@ function DashboardShell({
                         type="button"
                         onClick={() => {
                           navigate(c.roleType === 'SUPPLIER' ? '/procurement' : '/sales');
-                          setIsSearchModalOpen(false);
+                          closeSearchModal();
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
@@ -421,7 +474,7 @@ function DashboardShell({
                 </div>
               )}
 
-              {globalSearchResult.items.length > 0 && (
+              {globalSearchKeyword.trim() && !isSearching && globalSearchResult && globalSearchResult.items.length > 0 && (
                 <div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
                     产品 / 物料
@@ -433,7 +486,7 @@ function DashboardShell({
                         type="button"
                         onClick={() => {
                           navigate('/products');
-                          setIsSearchModalOpen(false);
+                          closeSearchModal();
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
@@ -445,7 +498,7 @@ function DashboardShell({
                 </div>
               )}
 
-              {globalSearchResult.salesOrders.length > 0 && (
+              {globalSearchKeyword.trim() && !isSearching && globalSearchResult && globalSearchResult.salesOrders.length > 0 && (
                 <div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
                     销售订单
@@ -457,7 +510,7 @@ function DashboardShell({
                         type="button"
                         onClick={() => {
                           navigate('/sales');
-                          setIsSearchModalOpen(false);
+                          closeSearchModal();
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
@@ -469,7 +522,7 @@ function DashboardShell({
                 </div>
               )}
 
-              {globalSearchResult.purchaseOrders.length > 0 && (
+              {globalSearchKeyword.trim() && !isSearching && globalSearchResult && globalSearchResult.purchaseOrders.length > 0 && (
                 <div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
                     采购订单
@@ -481,7 +534,7 @@ function DashboardShell({
                         type="button"
                         onClick={() => {
                           navigate('/procurement');
-                          setIsSearchModalOpen(false);
+                          closeSearchModal();
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
@@ -493,7 +546,7 @@ function DashboardShell({
                 </div>
               )}
 
-              {globalSearchResult.afterSalesCases.length > 0 && (
+              {globalSearchKeyword.trim() && !isSearching && globalSearchResult && globalSearchResult.afterSalesCases.length > 0 && (
                 <div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
                     售后记录
@@ -505,7 +558,7 @@ function DashboardShell({
                         type="button"
                         onClick={() => {
                           navigate('/after-sales');
-                          setIsSearchModalOpen(false);
+                          closeSearchModal();
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
@@ -517,7 +570,7 @@ function DashboardShell({
                 </div>
               )}
 
-              {globalSearchResult.warehouses.length > 0 && (
+              {globalSearchKeyword.trim() && !isSearching && globalSearchResult && globalSearchResult.warehouses.length > 0 && (
                 <div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
                     仓库
@@ -529,7 +582,7 @@ function DashboardShell({
                         type="button"
                         onClick={() => {
                           navigate('/warehouses');
-                          setIsSearchModalOpen(false);
+                          closeSearchModal();
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
@@ -541,7 +594,7 @@ function DashboardShell({
                 </div>
               )}
 
-              {globalSearchResult &&
+              {globalSearchKeyword.trim() && !isSearching && globalSearchResult &&
                 searchCounterparties.length === 0 &&
                 globalSearchResult.items.length === 0 &&
                 globalSearchResult.salesOrders.length === 0 &&
