@@ -6,6 +6,7 @@ import {
   buildBillSummaries,
   filterBillsByType,
   getBillCounterpartyName,
+  getBillCounterpartiesForType,
 } from '../src/pages/financeArapUtils.ts';
 
 const sampleBills: FinancialBill[] = [
@@ -119,4 +120,21 @@ test('buildBillSummaries backfills a missing symbol from later bills in the same
 
 test('getBillCounterpartyName reads the persisted counterparty snapshot', () => {
   assert.equal(getBillCounterpartyName(sampleBills[0]), 'Alpha');
+});
+
+test('getBillCounterpartiesForType keeps only valid role capabilities', () => {
+  const counterparties = [
+    { id: 'customer', roleType: 'CUSTOMER' },
+    { id: 'supplier', roleType: 'SUPPLIER' },
+    { id: 'both', roleType: 'BOTH' },
+  ] as any;
+
+  assert.deepEqual(
+    getBillCounterpartiesForType(counterparties, 'RECEIVABLE').map((item) => item.id),
+    ['customer', 'both'],
+  );
+  assert.deepEqual(
+    getBillCounterpartiesForType(counterparties, 'PAYABLE').map((item) => item.id),
+    ['supplier', 'both'],
+  );
 });

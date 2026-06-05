@@ -1,4 +1,4 @@
-import type { FinancialBill } from '../types';
+import type { Counterparty, FinancialBill } from '../types';
 
 export type BillType = 'RECEIVABLE' | 'PAYABLE';
 
@@ -15,6 +15,18 @@ export const filterBillsByType = (items: FinancialBill[], type: BillType) => {
 };
 
 export const getBillCounterpartyName = (bill: FinancialBill) => bill.counterpartyNameSnapshot;
+
+export const getBillCounterpartiesForType = (
+  counterparties: Counterparty[],
+  type: BillType,
+) => {
+  return counterparties.filter((counterparty) => {
+    if (counterparty.roleType === 'BOTH') return true;
+    return type === 'RECEIVABLE'
+      ? counterparty.roleType === 'CUSTOMER'
+      : counterparty.roleType === 'SUPPLIER';
+  });
+};
 
 export const buildBillSummaries = (items: FinancialBill[]): BillSummary[] => {
   const summaries = new Map<string, BillSummary>();

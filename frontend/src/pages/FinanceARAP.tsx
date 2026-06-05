@@ -9,7 +9,6 @@ import {
   UdsProgressBar,
 } from '../components/uds/UdsComponents';
 import { AuditLogModal } from '../components/uds/AuditLogModal';
-import { CounterpartyPicker } from '../components/counterparties/CounterpartyPicker';
 import { useI18n } from '../i18n/I18nContext';
 import {
   ArrowUpRight,
@@ -20,6 +19,7 @@ import {
   CreditCard,
   Coins,
 } from 'lucide-react';
+import { FinancialBillModal } from '../components/finance/FinancialBillModal';
 import { PaymentAccount, Currency, ShowToast, FinancialBill } from '../types';
 import { useFinance } from '../hooks/useFinance';
 import { useCurrencies } from '../hooks/useCurrencies';
@@ -29,6 +29,7 @@ import {
   filterBillsByType,
   getBillCounterpartyName,
   type BillSummary,
+  type BillType,
 } from './financeArapUtils';
 
 interface FinanceARAPProps {
@@ -65,14 +66,7 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
 
   const [activeTab, setActiveTab] = useState<'ledger' | 'accounts' | 'currencies'>('ledger');
   const [isAuditOpen, setIsAuditOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [formType, setFormType] = useState<'RECEIVABLE' | 'PAYABLE'>('RECEIVABLE');
-  const [formAmount, setFormAmount] = useState('');
-  const [formCounterpartyId, setFormCounterpartyId] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formDueDate, setFormDueDate] = useState('');
-  const [formCurrencyId, setFormCurrencyId] = useState('');
+  const [isBillModalOpen, setIsBillModalOpen] = useState(false);
 
   const [payingBillId, setPayingBillId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState('');
@@ -93,12 +87,6 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
   const [editingCurId, setEditingCurId] = useState<string | null>(null);
 
   const isLoading = financeLoading || currencyLoading || counterpartiesLoading;
-  const billCounterparties = React.useMemo(() => counterparties.filter((counterparty) => {
-    if (counterparty.roleType === 'BOTH') return true;
-    return formType === 'RECEIVABLE'
-      ? counterparty.roleType === 'CUSTOMER'
-      : counterparty.roleType === 'SUPPLIER';
-  }), [counterparties, formType]);
   const currencyOptions = [
     { value: '', label: 'Select Currency' },
     ...currencies.map((currency) => ({
@@ -115,13 +103,6 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
   const payableAccountsForBill = payingBill
     ? accounts.filter((account) => account.currencyId === payingBill.currencyId)
     : [];
-
-  React.useEffect(() => {
-    if (!formCounterpartyId) return;
-    if (!billCounterparties.some((counterparty) => counterparty.id === formCounterpartyId)) {
-      setFormCounterpartyId('');
-    }
-  }, [billCounterparties, formCounterpartyId]);
 
   const resetAccountForm = () => {
     setAccName('');
@@ -393,42 +374,16 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
     );
   };
 
-  const handleCreateBill = async (event: React.FormEvent) => {
-    event.preventDefault();
-
-    const amount = parseFloat(formAmount);
-    if (Number.isNaN(amount) || amount <= 0) {
-      showToast(t('errBillAmountPositive'), 'error');
-      return;
-    }
-
-    if (!formCounterpartyId || !formDueDate || !formCurrencyId) {
-      showToast(t('errBillRequired'), 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await createBill({
-        type: formType,
-        amount,
-        currencyId: formCurrencyId,
-        counterpartyId: formCounterpartyId,
-        description: formDescription.trim(),
-        dueDate: formDueDate,
-      });
-
-      showToast(t('billCreatedSuccess'), 'success');
-      setFormAmount('');
-      setFormCounterpartyId('');
-      setFormDescription('');
-      setFormDueDate('');
-      setFormCurrencyId('');
-    } catch (error: any) {
-      showToast(error.message || t('errBillRecordFailed'), 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleCreateBill = async (values: {
+    type: BillType;
+    amount: number;
+    counterpartyId: string;
+    currencyId: string;
+    description: string;
+    dueDate: string;
+  }) => {
+    await createBill(values);
+    showToast(t('billCreatedSuccess'), 'success');
   };
 
   const handlePayBill = async (event: React.FormEvent) => {
@@ -606,112 +561,56 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
     <div className="flex flex-col gap-8 animate-in fade-in duration-700">
       <UdsHeader className="hidden" title={t('financeHeader')} description={t('financeDesc')} />
 
-      <div className="flex bg-[#121214] p-1.5 rounded-2xl self-start gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('ledger')}
-          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all ${
-            activeTab === 'ledger' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
-          }`}
-        >
-          {t('transLedgerTab')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('accounts')}
-          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all ${
-            activeTab === 'accounts'
-              ? 'bg-white text-black'
-              : 'text-neutral-400 hover:text-white'
-          }`}
-        >
-          {t('paymentAccountsTab')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('currencies')}
-          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all ${
-            activeTab === 'currencies'
-              ? 'bg-white text-black'
-              : 'text-neutral-400 hover:text-white'
-          }`}
-        >
-          {t('currenciesTab')}
-        </button>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex bg-[#121214] p-1.5 rounded-2xl self-start gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ledger')}
+            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all ${
+              activeTab === 'ledger' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            {t('transLedgerTab')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('accounts')}
+            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all ${
+              activeTab === 'accounts'
+                ? 'bg-white text-black'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            {t('paymentAccountsTab')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('currencies')}
+            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest cursor-pointer transition-all ${
+              activeTab === 'currencies'
+                ? 'bg-white text-black'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            {t('currenciesTab')}
+          </button>
+        </div>
+
+        {activeTab === 'ledger' && (
+          <UdsButton
+            type="button"
+            variant="primary"
+            className="h-10 px-5"
+            onClick={() => setIsBillModalOpen(true)}
+          >
+            {t('recordBill')}
+          </UdsButton>
+        )}
       </div>
 
       {activeTab === 'ledger' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-4 flex flex-col gap-8">
-            <UdsCard title={t('recordBill')}>
-              <form onSubmit={handleCreateBill} className="flex flex-col gap-4">
-                <UdsSelect
-                  label={t('billType')}
-                  options={[
-                    { value: 'RECEIVABLE', label: t('receivableBill') },
-                    { value: 'PAYABLE', label: t('payableBill') },
-                  ]}
-                  value={formType}
-                  onChange={(event) =>
-                    setFormType(event.target.value as 'RECEIVABLE' | 'PAYABLE')
-                  }
-                  disabled={isSubmitting}
-                />
-                <CounterpartyPicker
-                  label={t('billPartner')}
-                  value={formCounterpartyId}
-                  counterparties={billCounterparties}
-                  onChange={setFormCounterpartyId}
-                  placeholder={t('partnerPlaceholder')}
-                  disabled={isSubmitting}
-                  required
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <UdsInput
-                    label={t('amountLabel')}
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    placeholder="0.00"
-                    value={formAmount}
-                    onChange={(event) => setFormAmount(event.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
-                  <UdsSelect
-                    label={t('currencyCodeLabel')}
-                    options={currencyOptions}
-                    value={formCurrencyId}
-                    onChange={(event) => setFormCurrencyId(event.target.value)}
-                    disabled={isSubmitting}
-                    required
-                  />
-                </div>
-                <UdsInput
-                  label={t('dueDateLabel')}
-                  type="date"
-                  value={formDueDate}
-                  onChange={(event) => setFormDueDate(event.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-                <UdsInput
-                  label={t('billDesc')}
-                  placeholder={t('billRemarksPlaceholder')}
-                  value={formDescription}
-                  onChange={(event) => setFormDescription(event.target.value)}
-                  disabled={isSubmitting}
-                />
-                <div className="border-t border-solid border-white/5 pt-4">
-                  <UdsButton type="submit" variant="primary" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? t('loading') : t('recordBillButton')}
-                  </UdsButton>
-                </div>
-              </form>
-            </UdsCard>
-          </div>
-
-          <div className="lg:col-span-8 flex flex-col gap-8">
+          <div className="lg:col-span-12 flex flex-col gap-8">
             {payingBill && (
               <UdsCard
                 title={t('writeOffTitle')}
@@ -1066,6 +965,14 @@ export const FinanceARAP: React.FC<FinanceARAPProps> = ({ token: _token, showToa
         onClose={() => setIsAuditOpen(false)}
         resource="finance"
         title={t('auditLog')}
+      />
+      <FinancialBillModal
+        isOpen={isBillModalOpen}
+        counterparties={counterparties}
+        currencies={currencies}
+        showToast={showToast}
+        onClose={() => setIsBillModalOpen(false)}
+        onSubmit={handleCreateBill}
       />
     </div>
   );
