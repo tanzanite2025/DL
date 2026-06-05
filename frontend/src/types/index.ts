@@ -108,6 +108,45 @@ export interface StockMatrixRow {
 }
 
 // --- 财务 ---
+export type CounterpartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'BOTH';
+
+export interface Counterparty {
+  id: string;
+  code: string;
+  name: string;
+  normalizedName: string;
+  roleType: CounterpartyRoleType;
+  contactPerson: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  remarks: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LedgerSummary {
+  total: number;
+  paid: number;
+  pending: number;
+}
+
+export interface CounterpartyLedger {
+  counterparty: Pick<Counterparty, 'id' | 'code' | 'name' | 'roleType' | 'isActive'>;
+  receivable: LedgerSummary;
+  payable: LedgerSummary;
+  netPosition: number;
+  bills: Array<{
+    id: string;
+    type: 'RECEIVABLE' | 'PAYABLE';
+    amount: number;
+    paidAmount: number;
+  }>;
+  salesOrders: Array<{ id: string; orderNo: string }>;
+  purchaseOrders: Array<{ id: string; orderNo: string }>;
+}
+
 export interface FinancialBill {
   id: string;
   type: 'RECEIVABLE' | 'PAYABLE';
@@ -116,7 +155,11 @@ export interface FinancialBill {
   currency?: Currency;
   paidAmount: number;
   status: 'UNPAID' | 'PARTIAL' | 'PAID';
-  partner: string;
+  counterpartyId: string;
+  counterparty?: Counterparty;
+  counterpartyNameSnapshot: string;
+  sourceType?: 'MANUAL' | 'SALES_ORDER' | 'PURCHASE_ORDER';
+  sourceId?: string | null;
   description: string | null;
   dueDate: string;
   createdAt: string;
@@ -155,33 +198,15 @@ export interface Currency {
 }
 
 // --- 供应商 ---
-export interface Supplier {
-  id: string;
-  code: string;
-  name: string;
-  contactPerson: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  remarks: string | null;
-}
 
 // --- 客户 ---
-export interface Customer {
-  id: string;
-  code: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-}
 
 // --- 采购订单 ---
 export interface PurchaseOrder {
   id: string;
   orderNo: string;
-  supplierId: string;
-  supplier: Supplier;
+  counterpartyId: string;
+  counterparty: Counterparty;
   itemId: string;
   item: Item;
   qty: number;
@@ -200,8 +225,8 @@ export interface PurchaseOrder {
 export interface SalesOrder {
   id: string;
   orderNo: string;
-  customerId: string;
-  customer: Customer;
+  counterpartyId: string;
+  counterparty: Counterparty;
   itemId: string;
   item: Item;
   qty: number;
@@ -217,8 +242,8 @@ export interface SalesOrder {
 export interface AfterSalesCase {
   id: string;
   receivedDate: string;
-  customerId: string;
-  customer: Customer;
+  counterpartyId: string;
+  counterparty: Counterparty;
   customerAddressSnapshot: string | null;
   itemId: string;
   item: Item;
@@ -244,7 +269,7 @@ export interface AfterSalesCase {
 // 全局搜索结果聚合结构
 export interface GlobalSearchResult {
   query: string;
-  customers: Customer[];
+  counterparties: Counterparty[];
   items: Item[];
   salesOrders: SalesOrder[];
   purchaseOrders: PurchaseOrder[];

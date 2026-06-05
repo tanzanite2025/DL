@@ -158,10 +158,12 @@ function DashboardShell({
     const timer = setTimeout(() => {
       // 直接调用搜索逻辑，无需额外点击按钮
       handleGlobalSearch();
-    }, 500);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [globalSearchKeyword]);
+
+  const searchCounterparties = globalSearchResult?.counterparties ?? [];
 
   return (
     <div className={`min-h-screen flex flex-col ${shellBg}`}>
@@ -395,18 +397,18 @@ function DashboardShell({
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-3 text-xs text-neutral-100 space-y-3">
-              {globalSearchResult.customers.length > 0 && (
+              {searchCounterparties.length > 0 && (
                 <div>
                   <div className="text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">
                     客户
                   </div>
                   <div className="space-y-1">
-                    {globalSearchResult.customers.map((c) => (
+                    {searchCounterparties.map((c) => (
                       <button
                         key={c.id}
                         type="button"
                         onClick={() => {
-                          navigate('/sales');
+                          navigate(c.roleType === 'SUPPLIER' ? '/procurement' : '/sales');
                           setIsSearchModalOpen(false);
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
@@ -460,7 +462,7 @@ function DashboardShell({
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
                         <span className="font-semibold mr-2">{so.orderNo}</span>
-                        <span className="text-[10px] text-neutral-500">{so.customer?.name}</span>
+                        <span className="text-[10px] text-neutral-500">{so.counterparty.name}</span>
                       </button>
                     ))}
                   </div>
@@ -484,7 +486,7 @@ function DashboardShell({
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
                         <span className="font-semibold mr-2">{po.orderNo}</span>
-                        <span className="text-[10px] text-neutral-500">{po.supplier?.name}</span>
+                        <span className="text-[10px] text-neutral-500">{po.counterparty.name}</span>
                       </button>
                     ))}
                   </div>
@@ -507,7 +509,7 @@ function DashboardShell({
                         }}
                         className="w-full text-left px-2 py-1 rounded-xl hover:bg-white/5 transition-colors truncate"
                       >
-                        <span className="font-semibold mr-2">{ac.customer?.name}</span>
+                        <span className="font-semibold mr-2">{ac.counterparty.name}</span>
                         <span className="text-[10px] text-neutral-500">{ac.shipmentTrackingNumber}</span>
                       </button>
                     ))}
@@ -540,7 +542,7 @@ function DashboardShell({
               )}
 
               {globalSearchResult &&
-                globalSearchResult.customers.length === 0 &&
+                searchCounterparties.length === 0 &&
                 globalSearchResult.items.length === 0 &&
                 globalSearchResult.salesOrders.length === 0 &&
                 globalSearchResult.purchaseOrders.length === 0 &&

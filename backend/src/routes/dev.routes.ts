@@ -12,8 +12,7 @@ router.delete('/clear-all-demo-data', async (req: Request, res: Response) => {
     await prisma.purchaseOrder.deleteMany();
     await prisma.bomComponent.deleteMany();
     await prisma.financialBill.deleteMany();
-    await prisma.customer.deleteMany();
-    await prisma.supplier.deleteMany();
+    await prisma.counterparty.deleteMany();
     await prisma.item.deleteMany();
     await prisma.warehouse.deleteMany();
     return res.json({ success: true, message: '业务演示数据已全部清空，保留了系统账号与主数据配置。' });

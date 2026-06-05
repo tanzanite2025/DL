@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  allowsCounterpartyRole,
-  assertCounterpartyRoles,
+  allowsCounterpartyCapability,
+  assertCounterpartyRoleType,
   buildNextCounterpartyCode,
   canManageCounterparties,
   canReadCounterparties,
@@ -23,22 +23,21 @@ test('buildNextCounterpartyCode increments the highest CP code', () => {
   assert.equal(buildNextCounterpartyCode([]), 'CP-0001');
 });
 
-test('assertCounterpartyRoles rejects records without any enabled role', () => {
-  assert.throws(() => assertCounterpartyRoles({ isCustomer: false, isSupplier: false }));
-  assert.doesNotThrow(() => assertCounterpartyRoles({ isCustomer: true, isSupplier: false }));
+test('assertCounterpartyRoleType accepts only CUSTOMER SUPPLIER and BOTH', () => {
+  assert.doesNotThrow(() => assertCounterpartyRoleType('CUSTOMER'));
+  assert.doesNotThrow(() => assertCounterpartyRoleType('SUPPLIER'));
+  assert.doesNotThrow(() => assertCounterpartyRoleType('BOTH'));
+  assert.throws(() => assertCounterpartyRoleType(''));
+  assert.throws(() => assertCounterpartyRoleType('customer'));
 });
 
-test('allowsCounterpartyRole checks requested business flow', () => {
-  const customerOnly = { isCustomer: true, isSupplier: false };
-  const supplierOnly = { isCustomer: false, isSupplier: true };
-  const both = { isCustomer: true, isSupplier: true };
-
-  assert.equal(allowsCounterpartyRole(customerOnly, 'customer'), true);
-  assert.equal(allowsCounterpartyRole(customerOnly, 'supplier'), false);
-  assert.equal(allowsCounterpartyRole(supplierOnly, 'supplier'), true);
-  assert.equal(allowsCounterpartyRole(supplierOnly, 'customer'), false);
-  assert.equal(allowsCounterpartyRole(both, 'customer'), true);
-  assert.equal(allowsCounterpartyRole(both, 'supplier'), true);
+test('allowsCounterpartyCapability derives customer and supplier access from roleType', () => {
+  assert.equal(allowsCounterpartyCapability('CUSTOMER', 'customer'), true);
+  assert.equal(allowsCounterpartyCapability('CUSTOMER', 'supplier'), false);
+  assert.equal(allowsCounterpartyCapability('SUPPLIER', 'customer'), false);
+  assert.equal(allowsCounterpartyCapability('SUPPLIER', 'supplier'), true);
+  assert.equal(allowsCounterpartyCapability('BOTH', 'customer'), true);
+  assert.equal(allowsCounterpartyCapability('BOTH', 'supplier'), true);
 });
 
 test('canReadCounterparties and canManageCounterparties follow permission access rules', () => {

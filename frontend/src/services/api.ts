@@ -119,10 +119,36 @@ export const auditApi = {
   },
 };
 
+// --- Counterparties ---
+export const counterpartiesApi = {
+  list: (params: { role?: 'customer' | 'supplier' | 'both'; q?: string } = {}) => {
+    const search = new URLSearchParams();
+    if (params.role) search.set('role', params.role);
+    if (params.q) search.set('q', params.q);
+    const qs = search.toString();
+    return request<import('../types').Counterparty[]>(`/counterparties${qs ? `?${qs}` : ''}`);
+  },
+  create: (data: Partial<import('../types').Counterparty>) =>
+    request<import('../types').Counterparty>('/counterparties', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<import('../types').Counterparty>) =>
+    request<import('../types').Counterparty>(`/counterparties/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request(`/counterparties/${id}`, { method: 'DELETE' }),
+  getLedger: (id: string) =>
+    request<import('../types').CounterpartyLedger>(`/counterparties/${id}/ledger`),
+};
+
 // --- Finance ---
 export const financeApi = {
-  listBills: () => request<any[]>('/finance'),
-  createBill: (data: any) =>
+  listBills: () => request<import('../types').FinancialBill[]>('/finance'),
+  createBill: (data: {
+    type: 'RECEIVABLE' | 'PAYABLE';
+    amount: number;
+    counterpartyId: string;
+    currencyId: string;
+    description: string;
+    dueDate: string;
+  }) =>
     request('/finance', { method: 'POST', body: JSON.stringify(data) }),
   payBill: (id: string, data: { payAmount: number; accountId?: string }) =>
     request(`/finance/${id}/pay`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -152,17 +178,6 @@ export const currenciesApi = {
     request(`/currencies/${id}`, { method: 'DELETE' }),
 };
 
-// --- Suppliers ---
-export const suppliersApi = {
-  list: () => request<any[]>('/suppliers'),
-  create: (data: any) =>
-    request('/suppliers', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: any) =>
-    request(`/suppliers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: (id: string) =>
-    request(`/suppliers/${id}`, { method: 'DELETE' }),
-};
-
 // --- Purchase Orders ---
 export const purchaseOrdersApi = {
   list: () => request<any[]>('/purchase-orders'),
@@ -174,17 +189,6 @@ export const purchaseOrdersApi = {
     request(`/purchase-orders/${id}`, { method: 'DELETE' }),
   receive: (id: string, data: { receiveQty: number; warehouseId: string }) =>
     request(`/purchase-orders/${id}/receive`, { method: 'POST', body: JSON.stringify(data) }),
-};
-
-// --- Customers ---
-export const customersApi = {
-  list: () => request<any[]>('/customers'),
-  create: (data: any) =>
-    request('/customers', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: any) =>
-    request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: (id: string) =>
-    request(`/customers/${id}`, { method: 'DELETE' }),
 };
 
 // --- Sales Orders ---

@@ -4,14 +4,13 @@ import { authenticateToken, AuthenticatedRequest } from '../middlewares/auth.js'
 
 const router = Router();
 
-// 全局搜索：根据关键字在多个核心模块中做模糊匹配
 router.get('/search', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const rawQ = String(req.query.q || '').trim();
 
   if (!rawQ) {
     return res.json({
       query: '',
-      customers: [],
+      counterparties: [],
       items: [],
       salesOrders: [],
       purchaseOrders: [],
@@ -23,7 +22,6 @@ router.get('/search', authenticateToken, async (req: AuthenticatedRequest, res: 
   const q = rawQ;
 
   try {
-    // 读取角色权限，用于决定可见模块
     let canSales = false;
     let canPurchase = false;
     let canGoods = false;
@@ -33,7 +31,7 @@ router.get('/search', authenticateToken, async (req: AuthenticatedRequest, res: 
     if (req.user?.roleId) {
       const role = await prisma.role.findUnique({ where: { id: req.user.roleId } });
       if (role) {
-        const isSystemAdmin = role.protected && role.name === '系统管理员';
+        const isSystemAdmin = role.protected;
         canSales = isSystemAdmin || !!role.canAccessSales;
         canPurchase = isSystemAdmin || !!role.canAccessPurchase;
         canGoods = isSystemAdmin || !!role.canAccessGoods || !!role.canAccessProducts;
@@ -44,7 +42,7 @@ router.get('/search', authenticateToken, async (req: AuthenticatedRequest, res: 
 
     const results = {
       query: q,
-      customers: [] as any[],
+      counterparties: [] as any[],
       items: [] as any[],
       salesOrders: [] as any[],
       purchaseOrders: [] as any[],
@@ -53,55 +51,62 @@ router.get('/search', authenticateToken, async (req: AuthenticatedRequest, res: 
     };
 
     if (canSales) {
-      results.customers = await prisma.customer.findMany({
+      results.counterparties = await prisma.counterparty.findMany({
         where: {
-          OR: [
-            { name: { contains: q } },
-            { code: { contains: q } },
-            { phone: { contains: q } },
-            { email: { contains: q } },
-            { address: { contains: q } },
+          AND: [
+            { OR: [{ roleType: 'CUSTOMER' }, { roleType: 'BOTH' }] },
+            {
+              OR: [
+                { name: { contains: q } },
+                { code: { contains: q } },
+                { phone: { contains: q } },
+                { email: { contains: q } },
+                { address: { contains: q } },
+              ],
+            },
           ],
         },
         take: 5,
         orderBy: { createdAt: 'desc' },
       });
 
-      results.salesOrders = await prisma.salesOrder.findMany({
+      const salesOrders = await prisma.salesOrder.findMany({
         where: {
           OR: [
             { orderNo: { contains: q } },
-            { customer: { name: { contains: q } } },
+            { counterparty: { name: { contains: q } } },
             { item: { name: { contains: q } } },
           ],
         },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
-          customer: true,
+          counterparty: true,
           item: true,
           currency: true,
         },
       });
+      results.salesOrders = salesOrders;
     }
 
     if (canPurchase) {
-      results.purchaseOrders = await prisma.purchaseOrder.findMany({
+      const purchaseOrders = await prisma.purchaseOrder.findMany({
         where: {
           OR: [
             { orderNo: { contains: q } },
-            { supplier: { name: { contains: q } } },
+            { counterparty: { name: { contains: q } } },
             { item: { name: { contains: q } } },
           ],
         },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
-          supplier: true,
+          counterparty: true,
           item: true,
           currency: true,
         },
       });
+      results.purchaseOrders = purchaseOrders;
     }
 
     if (canGoods) {
@@ -133,29 +138,30 @@ router.get('/search', authenticateToken, async (req: AuthenticatedRequest, res: 
     }
 
     if (canAfterSales) {
-      results.afterSalesCases = await prisma.afterSalesCase.findMany({
+      const afterSalesCases = await prisma.afterSalesCase.findMany({
         where: {
           OR: [
             { shipmentTrackingNumber: { contains: q } },
             { note: { contains: q } },
-            { customer: { name: { contains: q } } },
+            { counterparty: { name: { contains: q } } },
             { item: { name: { contains: q } } },
           ],
         },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
-          customer: true,
+          counterparty: true,
           item: true,
           warehouse: true,
         },
       });
+      results.afterSalesCases = afterSalesCases;
     }
 
     return res.json(results);
   } catch (error) {
-    console.error('[CRITICAL] 全局搜索失败：', error);
-    return res.status(500).json({ error: '[CRITICAL] 全局搜索失败。' });
+    console.error('[CRITICAL] Global search failed:', error);
+    return res.status(500).json({ error: '[CRITICAL] Global search failed.' });
   }
 });
 

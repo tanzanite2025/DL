@@ -30,7 +30,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
 
   // 待提交采购明细清单
   const [itemsList, setItemsList] = useState<Array<{
-    supplierId: string;
+    counterpartyId: string;
     itemId: string;
     qty: number;
     price: number;
@@ -40,14 +40,14 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
 
   // 快速录入网格状态（默认5行）
   const [quickRows, setQuickRows] = useState<Array<{
-    supplierId: string;
+    counterpartyId: string;
     itemId: string;
     qty: string;
     price: string;
     currencyId: string;
     expectedDate: string;
   }>>(
-    Array.from({ length: 5 }, () => ({ supplierId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' }))
+    Array.from({ length: 5 }, () => ({ counterpartyId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' }))
   );
 
   useEffect(() => {
@@ -65,25 +65,25 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   };
 
   const handleAddQuickRow = () => {
-    setQuickRows((prev) => [...prev, { supplierId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' }]);
+    setQuickRows((prev) => [...prev, { counterpartyId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' }]);
   };
 
   const handleAddQuickRows = () => {
     const validRows = quickRows.filter((row) => {
       const qtyInt = parseInt(row.qty);
       const priceFloat = parseFloat(row.price);
-      return row.supplierId && row.itemId && row.currencyId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
+      return row.counterpartyId && row.itemId && row.currencyId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
     });
 
     if (validRows.length === 0) {
-      if (quickRows.every(r => !r.supplierId && !r.itemId && !r.qty && !r.price)) {
+      if (quickRows.every(r => !r.counterpartyId && !r.itemId && !r.qty && !r.price)) {
         showToast(t('errPurchaseNoItems') || '待提交明细不能为空', 'error');
       }
       return;
     }
 
     const newItems = validRows.map(r => ({
-      supplierId: r.supplierId,
+      counterpartyId: r.counterpartyId,
       itemId: r.itemId,
       qty: parseInt(r.qty),
       price: parseFloat(r.price),
@@ -95,8 +95,8 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
     
     // 清空有效行
     setQuickRows(prev => prev.map(row => {
-      if (validRows.some(vr => vr.itemId === row.itemId && vr.supplierId === row.supplierId && vr.qty === row.qty)) {
-        return { supplierId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' };
+      if (validRows.some(vr => vr.itemId === row.itemId && vr.counterpartyId === row.counterpartyId && vr.qty === row.qty)) {
+        return { counterpartyId: '', itemId: '', qty: '', price: '', currencyId: '', expectedDate: '' };
       }
       return row;
     }));
@@ -180,8 +180,8 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                       <td className="py-1.5 pl-1 pr-1">
                         <UdsSelect
                           className="h-8 text-xs !bg-transparent border-transparent hover:border-white/10"
-                          value={row.supplierId}
-                          onChange={(e) => handleQuickRowChange(idx, 'supplierId', e.target.value)}
+                          value={row.counterpartyId}
+                          onChange={(e) => handleQuickRowChange(idx, 'counterpartyId', e.target.value)}
                           options={[
                             { value: '', label: '--' },
                             ...suppliers.map(s => ({ value: s.id, label: s.name }))
@@ -290,7 +290,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                 <div className="flex flex-col gap-2">
                   {itemsList.map((itemObj, idx) => {
                     const it = items.find((i: Item) => i.id === itemObj.itemId);
-                    const sup = suppliers.find(s => s.id === itemObj.supplierId);
+                    const sup = suppliers.find(s => s.id === itemObj.counterpartyId);
                     return (
                       <div key={idx} className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-solid border-white/5 group">
                         <div className="flex flex-col">

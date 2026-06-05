@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '../components/uds/UdsComponents';
 import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { SalesOrderForm } from '../components/uds/SalesOrderForm';
+import { CounterpartyForm } from '../components/counterparties/CounterpartyForm';
+import { CounterpartyPicker } from '../components/counterparties/CounterpartyPicker';
 import { useI18n } from '../i18n/I18nContext';
 import { Trash2, Edit3, CircleDollarSign } from 'lucide-react';
-import { Customer, SalesOrder, ShowToast } from '../types';
+import { Counterparty, SalesOrder, ShowToast } from '../types';
 import { useItems } from '../hooks/useItems';
 import { useSalesOrders } from '../hooks/useSalesOrders';
 import { useCustomers } from '../hooks/useCustomers';
@@ -26,14 +28,11 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
   const [isAuditOpen, setIsAuditOpen] = useState(false);
 
   // 客户表单状态
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Counterparty | null>(null);
+  const [isCounterpartyFormOpen, setIsCounterpartyFormOpen] = useState(false);
 
   // 订单表单状态
-  const [orderCustomerId, setOrderCustomerId] = useState('');
+  const [orderCounterpartyId, setOrderCounterpartyId] = useState('');
   const [orderItemId, setOrderItemId] = useState('');
   const [orderQty, setOrderQty] = useState('');
   const [orderPrice, setOrderPrice] = useState('');
@@ -44,63 +43,20 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
 
   // 数据加载后设置默认表单值
   React.useEffect(() => {
-    if (customers.length > 0 && !orderCustomerId) setOrderCustomerId(customers[0].id);
+    if (customers.length > 0 && !orderCounterpartyId) setOrderCounterpartyId(customers[0].id);
     if (items.length > 0 && !orderItemId) setOrderItemId(items[0].id);
-  }, [customers, items]);
+  }, [customers, items, orderCounterpartyId, orderItemId]);
 
   // 1. 保存/更新客户信息
-  const handleSaveCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customerName.trim()) {
-      showToast(t('errCustomerNameRequired'), 'error');
-      return;
-    }
-
-    const payload = {
-      name: customerName.trim(),
-      phone: customerPhone.trim() || null,
-      email: customerEmail.trim() || null,
-      address: customerAddress.trim() || null
-    };
-
-    try {
-      if (editingCustomerId) {
-        await updateCustomer(editingCustomerId, payload);
-      } else {
-        await createCustomer(payload);
-      }
-
-      showToast(
-        editingCustomerId ? t('customerUpdatedSuccess') : t('customerCreatedSuccess'),
-        'success'
-      );
-
-      setCustomerName('');
-      setCustomerPhone('');
-      setCustomerEmail('');
-      setCustomerAddress('');
-      setEditingCustomerId(null);
-    } catch (error: any) {
-      showToast(error.message || '保存客户出错', 'error');
-    }
-  };
-
-  // 编辑客户
-  const startEditCustomer = (c: Customer) => {
-    setEditingCustomerId(c.id);
-    setCustomerName(c.name);
-    setCustomerPhone(c.phone || '');
-    setCustomerEmail(c.email || '');
-    setCustomerAddress(c.address || '');
+  const startEditCustomer = (c: Counterparty) => {
+    setEditingCustomer(c);
+    setIsCounterpartyFormOpen(true);
   };
 
   // 取消编辑客户
   const cancelEditCustomer = () => {
-    setEditingCustomerId(null);
-    setCustomerName('');
-    setCustomerPhone('');
-    setCustomerEmail('');
-    setCustomerAddress('');
+    setEditingCustomer(null);
+    setIsCounterpartyFormOpen(false);
   };
 
   // 删除客户
@@ -122,7 +78,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
     try {
       for (const item of ordersList) {
         await createOrder({
-          customerId: item.customerId,
+          counterpartyId: item.counterpartyId,
           itemId: item.itemId,
           qty: item.qty,
           price: item.price,
@@ -139,7 +95,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
 
   const handleSaveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderCustomerId || !orderItemId || !orderQty || !orderPrice || !orderCurrencyId) {
+    if (!orderCounterpartyId || !orderItemId || !orderQty || !orderPrice || !orderCurrencyId) {
       showToast(t('errOrderFieldsRequired'), 'error');
       return;
     }
@@ -157,7 +113,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
     }
 
     const payload = {
-      customerId: orderCustomerId,
+      counterpartyId: orderCounterpartyId,
       itemId: orderItemId,
       qty: qtyVal,
       price: priceVal,
@@ -194,7 +150,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
       return;
     }
     setEditingOrderId(o.id);
-    setOrderCustomerId(o.customerId);
+    setOrderCounterpartyId(o.counterpartyId);
     setOrderItemId(o.itemId);
     setOrderQty(o.qty.toString());
     setOrderPrice(o.price.toString());
@@ -209,7 +165,7 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
     setOrderPrice('');
     setOrderCurrencyId('');
     setOrderStatus('DRAFT');
-    if (customers.length > 0) setOrderCustomerId(customers[0].id);
+    if (customers.length > 0) setOrderCounterpartyId(customers[0].id);
     if (items.length > 0) setOrderItemId(items[0].id);
   };
 
@@ -297,46 +253,22 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
           <>
             {/* 客户管理：左侧登记表单 */}
             <div className="lg:col-span-4">
-              <UdsCard title={editingCustomerId ? t('editProduct') : t('registerCustomer')}>
-                <form onSubmit={handleSaveCustomer} className="flex flex-col gap-5">
-                  <UdsInput
-                    label={t('customerName')}
-                    placeholder={t('customerNamePlaceholder')}
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    required
-                  />
-                  <UdsInput
-                    label={t('customerPhone')}
-                    placeholder={t('customerPhonePlaceholder')}
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                  />
-                  <UdsInput
-                    label={t('customerEmail')}
-                    placeholder={t('customerEmailPlaceholder')}
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                  />
-                  <UdsInput
-                    label={t('customerAddress')}
-                    placeholder={t('customerAddressPlaceholder')}
-                    value={customerAddress}
-                    onChange={(e) => setCustomerAddress(e.target.value)}
-                  />
-
-                  <div className="flex gap-3 mt-2">
-                    <UdsButton type="submit" variant="primary" className="flex-1">
-                      {editingCustomerId ? t('save') : t('registerCustomerBtn')}
-                    </UdsButton>
-                    {editingCustomerId && (
-                      <UdsButton type="button" variant="secondary" onClick={cancelEditCustomer}>
-                        {t('cancel')}
-                      </UdsButton>
-                    )}
-                  </div>
-                </form>
-              </UdsCard>
+              <CounterpartyForm
+                title={editingCustomer ? t('editProduct') : t('registerCustomer')}
+                initialValue={editingCustomer}
+                defaultRole="customer"
+                onSubmit={async (payload) => {
+                  if (editingCustomer) {
+                    await updateCustomer(editingCustomer.id, payload);
+                    showToast(t('customerUpdatedSuccess'), 'success');
+                  } else {
+                    await createCustomer(payload);
+                    showToast(t('customerCreatedSuccess'), 'success');
+                  }
+                  cancelEditCustomer();
+                }}
+                onCancel={editingCustomer || isCounterpartyFormOpen ? cancelEditCustomer : undefined}
+              />
             </div>
 
             {/* 客户管理：右侧列表表格 */}
@@ -426,11 +358,11 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
               <div className="lg:col-span-4 flex flex-col gap-8">
                 <UdsCard title={t('editProduct') || '编辑销售订单'}>
                 <form onSubmit={handleSaveOrder} className="flex flex-col gap-5">
-                  <UdsSelect
+                  <CounterpartyPicker
                     label={t('orderCustomerCol')}
-                    options={customers.map(c => ({ value: c.id, label: `${c.code} - ${c.name}` }))}
-                    value={orderCustomerId}
-                    onChange={(e) => setOrderCustomerId(e.target.value)}
+                    value={orderCounterpartyId}
+                    counterparties={customers}
+                    onChange={setOrderCounterpartyId}
                     required
                   />
                   {customers.length === 0 && (
@@ -598,8 +530,8 @@ export const SalesManagement: React.FC<SalesManagementProps> = ({ token: _token,
                               </td>
                               <td className="py-3.5 pl-2">
                                 <div className="flex flex-col">
-                                  <span className="text-xs font-bold text-neutral-200">{o.customer?.name}</span>
-                                  <span className="text-[8px] font-mono text-neutral-500 tracking-wider">[{o.customer?.code}]</span>
+                                  <span className="text-xs font-bold text-neutral-200">{o.counterparty.name}</span>
+                                  <span className="text-[8px] font-mono text-neutral-500 tracking-wider">[{o.counterparty.code}]</span>
                                 </div>
                               </td>
                               <td className="py-3.5 pl-2">

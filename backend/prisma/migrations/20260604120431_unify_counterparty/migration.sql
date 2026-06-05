@@ -16,8 +16,7 @@ CREATE TABLE "Counterparty" (
     "email" TEXT,
     "address" TEXT,
     "remarks" TEXT,
-    "isCustomer" BOOLEAN NOT NULL DEFAULT false,
-    "isSupplier" BOOLEAN NOT NULL DEFAULT false,
+    "roleType" TEXT NOT NULL,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
@@ -33,8 +32,7 @@ INSERT INTO "Counterparty" (
     "email",
     "address",
     "remarks",
-    "isCustomer",
-    "isSupplier",
+    "roleType",
     "isActive",
     "createdAt",
     "updatedAt"
@@ -49,8 +47,7 @@ SELECT
     "email",
     "address",
     NULL,
-    true,
-    false,
+    'CUSTOMER',
     true,
     "createdAt",
     "updatedAt"
@@ -66,8 +63,7 @@ INSERT INTO "Counterparty" (
     "email",
     "address",
     "remarks",
-    "isCustomer",
-    "isSupplier",
+    "roleType",
     "isActive",
     "createdAt",
     "updatedAt"
@@ -82,8 +78,7 @@ SELECT
     "email",
     "address",
     "remarks",
-    false,
-    true,
+    'SUPPLIER',
     true,
     "createdAt",
     "updatedAt"
@@ -96,7 +91,7 @@ WHERE NOT EXISTS (
 
 UPDATE "Counterparty"
 SET
-    "isSupplier" = true,
+    "roleType" = 'BOTH',
     "contactPerson" = COALESCE("contactPerson", (
         SELECT "Supplier"."contactPerson"
         FROM "Supplier"
@@ -125,8 +120,7 @@ INSERT INTO "Counterparty" (
     "email",
     "address",
     "remarks",
-    "isCustomer",
-    "isSupplier",
+    "roleType",
     "isActive",
     "createdAt",
     "updatedAt"
@@ -141,8 +135,14 @@ SELECT
     NULL,
     NULL,
     'Backfilled from FinancialBill.partner during counterparty migration.',
-    MAX(CASE WHEN "fb"."type" = 'RECEIVABLE' THEN 1 ELSE 0 END),
-    MAX(CASE WHEN "fb"."type" = 'PAYABLE' THEN 1 ELSE 0 END),
+    CASE
+        WHEN MAX(CASE WHEN "fb"."type" = 'RECEIVABLE' THEN 1 ELSE 0 END) = 1
+            AND MAX(CASE WHEN "fb"."type" = 'PAYABLE' THEN 1 ELSE 0 END) = 1
+            THEN 'BOTH'
+        WHEN MAX(CASE WHEN "fb"."type" = 'RECEIVABLE' THEN 1 ELSE 0 END) = 1
+            THEN 'CUSTOMER'
+        ELSE 'SUPPLIER'
+    END,
     true,
     MIN("fb"."createdAt"),
     MAX("fb"."updatedAt")

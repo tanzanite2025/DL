@@ -1,15 +1,27 @@
 import { Router, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
+import {
+  allowsCounterpartyCapability,
+  type CounterpartyRoleType,
+} from '../lib/counterpartyRules.js';
 import { authenticateToken, requirePermission, AuthenticatedRequest } from '../middlewares/auth.js';
 
 const router = Router();
 
-// 售后单列表
-router.get('/after-sales', authenticateToken, requirePermission('canAccessAfterSales'), async (req: AuthenticatedRequest, res: Response) => {
+async function findCustomerCounterparty(id: string) {
+  const counterparty = await prisma.counterparty.findUnique({ where: { id } });
+  if (!counterparty || !allowsCounterpartyCapability(counterparty.roleType as CounterpartyRoleType, 'customer')) {
+    return null;
+  }
+
+  return counterparty;
+}
+
+router.get('/after-sales', authenticateToken, requirePermission('canAccessAfterSales'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const cases = await prisma.afterSalesCase.findMany({
       include: {
-        customer: true,
+        counterparty: true,
         item: true,
         salesOrder: true,
         warehouse: true,
@@ -19,23 +31,22 @@ router.get('/after-sales', authenticateToken, requirePermission('canAccessAfterS
       orderBy: { createdAt: 'desc' },
     });
 
-    const payload = cases.map((c: any) => ({
-      ...c,
-      handlerName: c.handler?.username ?? null,
+    const payload = cases.map((afterSalesCase) => ({
+      ...afterSalesCase,
+      handlerName: afterSalesCase.handler?.username ?? null,
     }));
 
     return res.json(payload);
   } catch (error) {
-    console.error('[CRITICAL] 无法拉取售后记录：', error);
-    return res.status(500).json({ error: '[CRITICAL] 无法拉取售后记录。' });
+    console.error('[CRITICAL] Failed to fetch after-sales cases:', error);
+    return res.status(500).json({ error: '[CRITICAL] Failed to fetch after-sales cases.' });
   }
 });
 
-// 创建售后单
 router.post('/after-sales', authenticateToken, requirePermission('canAccessAfterSales'), async (req: AuthenticatedRequest, res: Response) => {
   const {
     receivedDate,
-    customerId,
+    counterpartyId,
     itemId,
     qty,
     type,
@@ -48,14 +59,14 @@ router.post('/after-sales', authenticateToken, requirePermission('canAccessAfter
     status,
   } = req.body;
 
-  if (!customerId || !itemId || !type || !warehouseId) {
-    return res.status(400).json({ error: '[CRITICAL] 售后单缺少必要字段（客户、产品、类型、退回仓库）。' });
+  if (!counterpartyId || !itemId || !type || !warehouseId) {
+    return res.status(400).json({ error: '[CRITICAL] Missing required after-sales fields.' });
   }
 
   try {
-    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    const customer = await findCustomerCounterparty(counterpartyId);
     if (!customer) {
-      return res.status(400).json({ error: '[CRITICAL] 指定客户不存在。' });
+      return res.status(400).json({ error: '[CRITICAL] Selected counterparty is not customer-capable.' });
     }
 
     const handlerId = req.user?.id ?? null;
@@ -64,7 +75,7 @@ router.post('/after-sales', authenticateToken, requirePermission('canAccessAfter
     const created = await prisma.afterSalesCase.create({
       data: {
         receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
-        customerId,
+        counterpartyId,
         customerAddressSnapshot: customerAddressSnapshot ?? customer.address ?? null,
         itemId,
         qty: Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1,
@@ -78,21 +89,31 @@ router.post('/after-sales', authenticateToken, requirePermission('canAccessAfter
         handlerId,
         status: status || 'PENDING',
       },
+      include: {
+        counterparty: true,
+        item: true,
+        salesOrder: true,
+        warehouse: true,
+        goodsMove: true,
+        handler: true,
+      },
     });
 
-    return res.json(created);
+    return res.json({
+      ...created,
+      handlerName: created.handler?.username ?? null,
+    });
   } catch (error) {
-    console.error('[CRITICAL] 创建售后记录失败：', error);
-    return res.status(500).json({ error: '[CRITICAL] 创建售后记录失败。' });
+    console.error('[CRITICAL] Failed to create after-sales case:', error);
+    return res.status(500).json({ error: '[CRITICAL] Failed to create after-sales case.' });
   }
 });
 
-// 更新售后单
 router.put('/after-sales/:id', authenticateToken, requirePermission('canAccessAfterSales'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const {
     receivedDate,
-    customerId,
+    counterpartyId,
     itemId,
     qty,
     type,
@@ -109,12 +130,18 @@ router.put('/after-sales/:id', authenticateToken, requirePermission('canAccessAf
   try {
     const existing = await prisma.afterSalesCase.findUnique({ where: { id } });
     if (!existing) {
-      return res.status(404).json({ error: '[CRITICAL] 找不到该售后记录。' });
+      return res.status(404).json({ error: '[CRITICAL] After-sales case not found.' });
     }
 
-    const data: any = {};
+    const data: Record<string, unknown> = {};
     if (receivedDate) data.receivedDate = new Date(receivedDate);
-    if (customerId) data.customerId = customerId;
+    if (counterpartyId) {
+      const customer = await findCustomerCounterparty(counterpartyId);
+      if (!customer) {
+        return res.status(400).json({ error: '[CRITICAL] Selected counterparty is not customer-capable.' });
+      }
+      data.counterpartyId = counterpartyId;
+    }
     if (typeof customerAddressSnapshot !== 'undefined') data.customerAddressSnapshot = customerAddressSnapshot;
     if (itemId) data.itemId = itemId;
     if (typeof salesOrderId !== 'undefined') data.salesOrderId = salesOrderId || null;
@@ -153,37 +180,55 @@ router.put('/after-sales/:id', authenticateToken, requirePermission('canAccessAf
             fromWarehouseId: null,
             toWarehouseId: updatedCase.warehouseId,
             userId,
-            remarks: `售后单 ${updatedCase.id} 自动退货入库`,
+            remarks: `After-sales case ${updatedCase.id} auto return receipt`,
           },
         });
 
-        const withLink = await tx.afterSalesCase.update({
+        return tx.afterSalesCase.update({
           where: { id: updatedCase.id },
           data: { goodsMoveId: move.id },
+          include: {
+            counterparty: true,
+            item: true,
+            salesOrder: true,
+            warehouse: true,
+            goodsMove: true,
+            handler: true,
+          },
         });
-
-        return withLink;
       }
 
-      return updatedCase;
+      return tx.afterSalesCase.findUniqueOrThrow({
+        where: { id: updatedCase.id },
+        include: {
+          counterparty: true,
+          item: true,
+          salesOrder: true,
+          warehouse: true,
+          goodsMove: true,
+          handler: true,
+        },
+      });
     });
 
-    return res.json(updated);
+    return res.json({
+      ...updated,
+      handlerName: updated.handler?.username ?? null,
+    });
   } catch (error) {
-    console.error('[CRITICAL] 更新售后记录失败：', error);
-    return res.status(500).json({ error: '[CRITICAL] 更新售后记录失败。' });
+    console.error('[CRITICAL] Failed to update after-sales case:', error);
+    return res.status(500).json({ error: '[CRITICAL] Failed to update after-sales case.' });
   }
 });
 
-// 删除售后单
 router.delete('/after-sales/:id', authenticateToken, requirePermission('canAccessAfterSales'), async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   try {
     await prisma.afterSalesCase.delete({ where: { id } });
     return res.json({ success: true });
   } catch (error) {
-    console.error('[CRITICAL] 删除售后记录失败：', error);
-    return res.status(500).json({ error: '[CRITICAL] 删除售后记录失败。' });
+    console.error('[CRITICAL] Failed to delete after-sales case:', error);
+    return res.status(500).json({ error: '[CRITICAL] Failed to delete after-sales case.' });
   }
 });
 

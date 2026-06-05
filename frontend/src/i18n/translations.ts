@@ -407,6 +407,13 @@ export const translations = {
     status: "状态",
     duration: "耗时(ms)",
 
+    counterpartyLabel: "往来主体",
+    counterpartyCustomerLabel: "客户",
+    counterpartySupplierLabel: "供应商",
+    counterpartyLedgerTitle: "往来主体台账",
+    counterpartyPickerPlaceholder: "请选择往来主体",
+    netPosition: "净头寸",
+
     // 登录与全局
     errLoginEmpty: "用户名和密码不能为空",
     errNetwork: "网络连接失败，请检查后端服务是否开启。",
@@ -922,6 +929,13 @@ export const translations = {
     action: "Action",
     status: "Status",
     duration: "Duration(ms)",
+
+    counterpartyLabel: "Counterparty",
+    counterpartyCustomerLabel: "Customer",
+    counterpartySupplierLabel: "Supplier",
+    counterpartyLedgerTitle: "Counterparty Ledger",
+    counterpartyPickerPlaceholder: "Select counterparty",
+    netPosition: "Net Position",
 
     // Login & general
     errLoginEmpty: "Username and password cannot be empty",

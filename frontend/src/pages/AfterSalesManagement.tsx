@@ -16,7 +16,7 @@ interface AfterSalesManagementProps {
 
 export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ showToast }) => {
   const navigate = useNavigate();
-  const { customers } = useCustomers();
+  const { customers: counterparties } = useCustomers();
   const { items } = useItems();
   const { warehouses } = useWarehouses();
   const { cases, isLoading, createCase, updateCase, deleteCase } = useAfterSalesCases();
@@ -41,7 +41,7 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
   };
 
   const handleModalSubmit = async (values: {
-    customerId: string;
+    counterpartyId: string;
     shipFromAddress: string;
     itemId: string;
     warehouseId: string;
@@ -56,7 +56,7 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
     const parsedQty = parseInt(values.qty || '1', 10);
 
     const payload: any = {
-      customerId: values.customerId,
+      counterpartyId: values.counterpartyId,
       itemId: values.itemId,
       type: values.type,
       customerAddressSnapshot: values.shipFromAddress || null,
@@ -144,7 +144,7 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
                     {cases.map(c => (
                       <tr key={c.id} className="border-b border-white/5 hover:bg-white/5">
                         <td className="py-1.5 pr-2 whitespace-nowrap">{c.receivedDate.slice(0, 10)}</td>
-                        <td className="py-1.5 pr-2 whitespace-nowrap">{c.customer?.name}</td>
+                        <td className="py-1.5 pr-2 whitespace-nowrap">{c.counterparty.name}</td>
                         <td className="py-1.5 pr-2 max-w-[160px] truncate" title={c.customerAddressSnapshot || ''}>{c.customerAddressSnapshot}</td>
                         <td className="py-1.5 pr-2 whitespace-nowrap">{c.item?.name}</td>
                         <td className="py-1.5 pr-2 whitespace-nowrap">{c.qty}</td>
@@ -201,7 +201,7 @@ export const AfterSalesManagement: React.FC<AfterSalesManagementProps> = ({ show
       <AfterSalesCaseModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        customers={customers}
+        counterparties={counterparties}
         items={items}
         warehouses={warehouses}
         initialCase={editingCase}

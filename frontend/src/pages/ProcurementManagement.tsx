@@ -3,9 +3,11 @@ import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '..
 import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
 import { PurchaseOrderForm } from '../components/uds/PurchaseOrderForm';
+import { CounterpartyForm } from '../components/counterparties/CounterpartyForm';
+import { CounterpartyPicker } from '../components/counterparties/CounterpartyPicker';
 import { useI18n } from '../i18n/I18nContext';
 import { Users, Trash2, Edit3, TruckIcon } from 'lucide-react';
-import { Supplier, PurchaseOrder, ShowToast } from '../types';
+import { Counterparty, PurchaseOrder, ShowToast } from '../types';
 import { useItems } from '../hooks/useItems';
 import { useSuppliers } from '../hooks/useSuppliers';
 import { usePurchaseOrders } from '../hooks/usePurchaseOrders';
@@ -26,16 +28,11 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   const isLoading = suppliersLoading || itemsLoading || ordersLoading;
 
   // 供应商表单状态
-  const [supplierName, setSupplierName] = useState('');
-  const [contactPerson, setContactPerson] = useState('');
-  const [supplierPhone, setSupplierPhone] = useState('');
-  const [supplierEmail, setSupplierEmail] = useState('');
-  const [supplierAddress, setSupplierAddress] = useState('');
-  const [supplierRemarks, setSupplierRemarks] = useState('');
-  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+  const [editingSupplier, setEditingSupplier] = useState<Counterparty | null>(null);
+  const [isCounterpartyFormOpen, setIsCounterpartyFormOpen] = useState(false);
 
   // 采购订单表单状态
-  const [orderSupplierId, setOrderSupplierId] = useState('');
+  const [orderCounterpartyId, setOrderCounterpartyId] = useState('');
   const [orderItemId, setOrderItemId] = useState('');
   const [orderQty, setOrderQty] = useState('');
   const [orderPrice, setOrderPrice] = useState('');
@@ -51,62 +48,19 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
 
   // 数据加载后设置默认表单值
   React.useEffect(() => {
-    if (suppliers.length > 0 && !orderSupplierId) setOrderSupplierId(suppliers[0].id);
+    if (suppliers.length > 0 && !orderCounterpartyId) setOrderCounterpartyId(suppliers[0].id);
     if (items.length > 0 && !orderItemId) setOrderItemId(items[0].id);
-  }, [suppliers, items]);
+  }, [suppliers, items, orderCounterpartyId, orderItemId]);
 
   // ==================== 供应商管理函数 ====================
-  const handleSaveSupplier = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supplierName.trim()) {
-      showToast(t('errSupplierFormRequired'), 'error');
-      return;
-    }
-
-    const payload = {
-      name: supplierName.trim(),
-      contactPerson: contactPerson.trim() || null,
-      phone: supplierPhone.trim() || null,
-      email: supplierEmail.trim() || null,
-      address: supplierAddress.trim() || null,
-      remarks: supplierRemarks.trim() || null,
-    };
-
-    try {
-      if (editingSupplierId) {
-        await updateSupplier(editingSupplierId, payload);
-      } else {
-        await createSupplier(payload);
-      }
-
-      showToast(
-        editingSupplierId ? t('supplierUpdatedSuccess') : t('supplierCreatedSuccess'),
-        'success'
-      );
-      clearSupplierForm();
-    } catch (error: any) {
-      showToast(error.message || t('errSupplierFormRequired'), 'error');
-    }
-  };
-
   const clearSupplierForm = () => {
-    setSupplierName('');
-    setContactPerson('');
-    setSupplierPhone('');
-    setSupplierEmail('');
-    setSupplierAddress('');
-    setSupplierRemarks('');
-    setEditingSupplierId(null);
+    setEditingSupplier(null);
+    setIsCounterpartyFormOpen(false);
   };
 
-  const startEditSupplier = (supplier: Supplier) => {
-    setEditingSupplierId(supplier.id);
-    setSupplierName(supplier.name);
-    setContactPerson(supplier.contactPerson || '');
-    setSupplierPhone(supplier.phone || '');
-    setSupplierEmail(supplier.email || '');
-    setSupplierAddress(supplier.address || '');
-    setSupplierRemarks(supplier.remarks || '');
+  const startEditSupplier = (supplier: Counterparty) => {
+    setEditingSupplier(supplier);
+    setIsCounterpartyFormOpen(true);
   };
 
   const handleDeleteSupplier = async (id: string) => {
@@ -127,7 +81,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
     try {
       for (const item of ordersList) {
         await createOrder({
-          supplierId: item.supplierId,
+          counterpartyId: item.counterpartyId,
           itemId: item.itemId,
           qty: item.qty,
           price: item.price,
@@ -148,7 +102,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
     const qtyInt = parseInt(orderQty);
     const priceFloat = parseFloat(orderPrice);
 
-    if (!orderSupplierId || !orderItemId || isNaN(qtyInt) || isNaN(priceFloat) || !orderCurrencyId) {
+    if (!orderCounterpartyId || !orderItemId || isNaN(qtyInt) || isNaN(priceFloat) || !orderCurrencyId) {
       showToast(t('errPurchaseFormRequired'), 'error');
       return;
     }
@@ -159,7 +113,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
     }
 
     const payload = {
-      supplierId: orderSupplierId,
+      counterpartyId: orderCounterpartyId,
       itemId: orderItemId,
       qty: qtyInt,
       price: priceFloat,
@@ -192,13 +146,13 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
     setOrderExpectedDate('');
     setOrderStatus('DRAFT');
     setEditingOrderId(null);
-    if (suppliers.length > 0) setOrderSupplierId(suppliers[0].id);
+    if (suppliers.length > 0) setOrderCounterpartyId(suppliers[0].id);
     if (items.length > 0) setOrderItemId(items[0].id);
   };
 
   const startEditOrder = (order: PurchaseOrder) => {
     setEditingOrderId(order.id);
-    setOrderSupplierId(order.supplierId);
+    setOrderCounterpartyId(order.counterpartyId);
     setOrderItemId(order.itemId);
     setOrderQty(order.qty.toString());
     setOrderPrice(order.price.toString());
@@ -272,71 +226,29 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* 左侧：供应商表单 */}
           <div className="lg:col-span-5">
-            <UdsCard
-              title={editingSupplierId ? t('editSupplier') : t('registerSupplier')}
-              action={
-                editingSupplierId && (
-                  <UdsButton variant="ghost" onClick={clearSupplierForm} className="h-7 px-3">
-                    {t('cancel')}
-                  </UdsButton>
-                )
-              }
-            >
-              <form onSubmit={handleSaveSupplier} className="flex flex-col gap-4">
-                <UdsInput
-                  label={t('supplierName')}
-                  placeholder={t('supplierNamePlaceholder')}
-                  value={supplierName}
-                  onChange={(e) => setSupplierName(e.target.value)}
-                  required
-                />
-                <UdsInput
-                  label={t('contactPerson')}
-                  placeholder={t('contactPersonPlaceholder')}
-                  value={contactPerson}
-                  onChange={(e) => setContactPerson(e.target.value)}
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <UdsInput
-                    label={t('supplierPhone')}
-                    placeholder={t('supplierPhone')}
-                    value={supplierPhone}
-                    onChange={(e) => setSupplierPhone(e.target.value)}
-                  />
-                  <UdsInput
-                    label={t('supplierEmail')}
-                    type="email"
-                    placeholder={t('supplierEmail')}
-                    value={supplierEmail}
-                    onChange={(e) => setSupplierEmail(e.target.value)}
-                  />
-                </div>
-                <UdsInput
-                  label={t('supplierAddress')}
-                  placeholder={t('supplierAddressPlaceholder')}
-                  value={supplierAddress}
-                  onChange={(e) => setSupplierAddress(e.target.value)}
-                />
-                <UdsInput
-                  label={t('supplierRemarks')}
-                  placeholder={t('supplierRemarksPlaceholder')}
-                  value={supplierRemarks}
-                  onChange={(e) => setSupplierRemarks(e.target.value)}
-                />
-                <div className="border-t border-dashed border-white/5 pt-4">
-                  <UdsButton type="submit" variant="primary" className="w-full">
-                    {editingSupplierId ? t('saveChanges') : t('registerSupplier')}
-                  </UdsButton>
-                </div>
-              </form>
-            </UdsCard>
+            <CounterpartyForm
+              title={editingSupplier ? t('editSupplier') : t('registerSupplier')}
+              initialValue={editingSupplier}
+              defaultRole="supplier"
+              onSubmit={async (payload) => {
+                if (editingSupplier) {
+                  await updateSupplier(editingSupplier.id, payload);
+                  showToast(t('supplierUpdatedSuccess'), 'success');
+                } else {
+                  await createSupplier(payload);
+                  showToast(t('supplierCreatedSuccess'), 'success');
+                }
+                clearSupplierForm();
+              }}
+              onCancel={editingSupplier || isCounterpartyFormOpen ? clearSupplierForm : undefined}
+            />
           </div>
 
           {/* 右侧：供应商列表 */}
           <div className="lg:col-span-7">
             <UdsCard title={t('supplierList')}>
               <div className="flex flex-col gap-4">
-                {suppliers.map((supplier: Supplier) => (
+                {suppliers.map((supplier: Counterparty) => (
                   <div
                     key={supplier.id}
                     className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl border border-dashed border-white/5 bg-white/2"
@@ -427,11 +339,12 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                 </div>
               ) : (
                 <form onSubmit={handleSavePurchaseOrder} className="flex flex-col gap-4">
-                  <UdsSelect
+                  <CounterpartyPicker
                     label={t('selectSupplier')}
-                    options={suppliers.map((s: Supplier) => ({ value: s.id, label: `[${s.code}] ${s.name}` }))}
-                    value={orderSupplierId}
-                    onChange={(e) => setOrderSupplierId(e.target.value)}
+                    value={orderCounterpartyId}
+                    counterparties={suppliers}
+                    onChange={setOrderCounterpartyId}
+                    required
                   />
                   <UdsSelect
                     label={t('selectItem')}
@@ -556,7 +469,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                           </div>
                         </td>
                         <td className="py-3.5">
-                          <span className="text-neutral-300">{order.supplier.name}</span>
+                          <span className="text-neutral-300">{order.counterparty.name}</span>
                         </td>
                         <td className="py-3.5">
                           <div className="flex flex-col">

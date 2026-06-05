@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { UdsButton, UdsInput, UdsSelect, UdsCard } from '../uds/UdsComponents';
-import { AfterSalesCase, Customer, Item, ShowToast, Warehouse } from '../../types';
+import { CounterpartyPicker } from '../counterparties/CounterpartyPicker';
+import { AfterSalesCase, Counterparty, Item, ShowToast, Warehouse } from '../../types';
 
 interface AfterSalesCaseModalProps {
   isOpen: boolean;
   onClose: () => void;
-  customers: Customer[];
+  counterparties: Counterparty[];
   items: Item[];
   initialCase: AfterSalesCase | null;
   onSubmit: (values: {
-    customerId: string;
+    counterpartyId: string;
     shipFromAddress: string;
     itemId: string;
     warehouseId: string;
@@ -28,14 +29,14 @@ interface AfterSalesCaseModalProps {
 export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
   isOpen,
   onClose,
-  customers,
+  counterparties,
   items,
   initialCase,
   onSubmit,
   showToast,
   warehouses,
 }) => {
-  const [customerId, setCustomerId] = useState('');
+  const [counterpartyId, setCounterpartyId] = useState('');
   const [shipFromAddress, setShipFromAddress] = useState('');
   const [itemId, setItemId] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
@@ -52,7 +53,7 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
     if (!isOpen) return;
 
     if (initialCase) {
-      setCustomerId(initialCase.customerId);
+      setCounterpartyId(initialCase.counterpartyId);
       setShipFromAddress(initialCase.customerAddressSnapshot || '');
       setItemId(initialCase.itemId);
       setWarehouseId(initialCase.warehouseId || '');
@@ -64,7 +65,7 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
       setNote(initialCase.note || '');
       setStatus(initialCase.status);
     } else {
-      setCustomerId('');
+      setCounterpartyId('');
       setShipFromAddress('');
       setItemId('');
       setWarehouseId('');
@@ -82,7 +83,7 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerId || !itemId || !warehouseId) {
+    if (!counterpartyId || !itemId || !warehouseId) {
       showToast('客户 / 产品 / 退回仓库 不能为空', 'error');
       return;
     }
@@ -90,7 +91,7 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
     setIsSubmitting(true);
     try {
       await onSubmit({
-        customerId,
+        counterpartyId,
         shipFromAddress,
         itemId,
         warehouseId,
@@ -124,14 +125,13 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
               />
-              <UdsSelect
-                label="客户"
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-                options={[
-                  { value: '', label: '请选择客户' },
-                  ...customers.map(c => ({ value: c.id, label: c.name })),
-                ]}
+              <CounterpartyPicker
+                label="瀹㈡埛"
+                value={counterpartyId}
+                counterparties={counterparties}
+                onChange={setCounterpartyId}
+                placeholder="璇烽€夋嫨瀹㈡埛"
+                required
               />
               <UdsInput
                 label="寄出地址"

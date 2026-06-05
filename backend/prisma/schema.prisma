@@ -152,13 +152,12 @@ model Counterparty {
   code           String          @unique
   name           String          @unique
   normalizedName String          @unique
+  roleType       String
   contactPerson  String?
   phone          String?
   email          String?
   address        String?
   remarks        String?
-  isCustomer     Boolean         @default(false)
-  isSupplier     Boolean         @default(false)
   isActive       Boolean         @default(true)
   salesOrders    SalesOrder[]
   purchaseOrders PurchaseOrder[]

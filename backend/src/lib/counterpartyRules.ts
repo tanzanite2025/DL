@@ -1,4 +1,6 @@
 export type CounterpartyRole = 'customer' | 'supplier';
+export type CounterpartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'BOTH';
+export type CounterpartyCapability = CounterpartyRole;
 
 export type CounterpartyRoleState = {
   isCustomer: boolean;
@@ -12,6 +14,8 @@ export type CounterpartyPermissionShape = {
   canAccessAfterSales?: boolean;
   canAccessFinance?: boolean;
 };
+
+const VALID_ROLE_TYPES: CounterpartyRoleType[] = ['CUSTOMER', 'SUPPLIER', 'BOTH'];
 
 export function normalizeCounterpartyName(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toUpperCase();
@@ -29,17 +33,39 @@ export function buildNextCounterpartyCode(existingCodes: string[]): string {
   return `CP-${String(highest + 1).padStart(4, '0')}`;
 }
 
-export function assertCounterpartyRoles(state: CounterpartyRoleState): void {
-  if (!state.isCustomer && !state.isSupplier) {
-    throw new Error('At least one counterparty role must be enabled.');
+export function assertCounterpartyRoleType(
+  roleType: string,
+): asserts roleType is CounterpartyRoleType {
+  if (!VALID_ROLE_TYPES.includes(roleType as CounterpartyRoleType)) {
+    throw new Error('Counterparty roleType must be CUSTOMER, SUPPLIER, or BOTH.');
   }
+}
+
+export function allowsCounterpartyCapability(
+  roleType: CounterpartyRoleType,
+  capability: CounterpartyCapability,
+): boolean {
+  return roleType === 'BOTH' || roleType === capability.toUpperCase();
+}
+
+export function deriveCounterpartyRoleType(
+  state: CounterpartyRoleState,
+): CounterpartyRoleType {
+  if (state.isCustomer && state.isSupplier) return 'BOTH';
+  if (state.isCustomer) return 'CUSTOMER';
+  if (state.isSupplier) return 'SUPPLIER';
+  throw new Error('At least one counterparty role must be enabled.');
+}
+
+export function assertCounterpartyRoles(state: CounterpartyRoleState): void {
+  deriveCounterpartyRoleType(state);
 }
 
 export function allowsCounterpartyRole(
   state: CounterpartyRoleState,
   role: CounterpartyRole,
 ): boolean {
-  return role === 'customer' ? state.isCustomer : state.isSupplier;
+  return allowsCounterpartyCapability(deriveCounterpartyRoleType(state), role);
 }
 
 export function canReadCounterparties(role: CounterpartyPermissionShape): boolean {

@@ -30,7 +30,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
 
   // 待提交销售明细清单
   const [itemsList, setItemsList] = useState<Array<{
-    customerId: string;
+    counterpartyId: string;
     itemId: string;
     qty: number;
     price: number;
@@ -40,14 +40,14 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
 
   // 快速录入网格状态（默认5行）
   const [quickRows, setQuickRows] = useState<Array<{
-    customerId: string;
+    counterpartyId: string;
     itemId: string;
     qty: string;
     price: string;
     currencyId: string;
     status: 'DRAFT' | 'ACTIVE' | 'SHIPPED';
   }>>(
-    Array.from({ length: 5 }, () => ({ customerId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' }))
+    Array.from({ length: 5 }, () => ({ counterpartyId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' }))
   );
 
   useEffect(() => {
@@ -65,25 +65,25 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
   };
 
   const handleAddQuickRow = () => {
-    setQuickRows((prev) => [...prev, { customerId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' }]);
+    setQuickRows((prev) => [...prev, { counterpartyId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' }]);
   };
 
   const handleAddQuickRows = () => {
     const validRows = quickRows.filter((row) => {
       const qtyInt = parseInt(row.qty);
       const priceFloat = parseFloat(row.price);
-      return row.customerId && row.itemId && row.currencyId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
+      return row.counterpartyId && row.itemId && row.currencyId && !isNaN(qtyInt) && qtyInt > 0 && !isNaN(priceFloat) && priceFloat >= 0;
     });
 
     if (validRows.length === 0) {
-      if (quickRows.every(r => !r.customerId && !r.itemId && !r.qty && !r.price)) {
+      if (quickRows.every(r => !r.counterpartyId && !r.itemId && !r.qty && !r.price)) {
         showToast(t('errSalesNoItems') || '待提交明细不能为空', 'error');
       }
       return;
     }
 
     const newItems = validRows.map(r => ({
-      customerId: r.customerId,
+      counterpartyId: r.counterpartyId,
       itemId: r.itemId,
       qty: parseInt(r.qty),
       price: parseFloat(r.price),
@@ -95,8 +95,8 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
     
     // 清空有效行
     setQuickRows(prev => prev.map(row => {
-      if (validRows.some(vr => vr.itemId === row.itemId && vr.customerId === row.customerId && vr.qty === row.qty)) {
-        return { customerId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' };
+      if (validRows.some(vr => vr.itemId === row.itemId && vr.counterpartyId === row.counterpartyId && vr.qty === row.qty)) {
+        return { counterpartyId: '', itemId: '', qty: '', price: '', currencyId: '', status: 'DRAFT' };
       }
       return row;
     }));
@@ -179,8 +179,8 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
                       <td className="py-1.5 pl-1 pr-1">
                         <UdsSelect
                           className="h-8 text-xs !bg-transparent border-transparent hover:border-white/10"
-                          value={row.customerId}
-                          onChange={(e) => handleQuickRowChange(idx, 'customerId', e.target.value)}
+                          value={row.counterpartyId}
+                          onChange={(e) => handleQuickRowChange(idx, 'counterpartyId', e.target.value)}
                           options={[
                             { value: '', label: '--' },
                             ...customers.map(c => ({ value: c.id, label: c.name }))
@@ -293,7 +293,7 @@ export const SalesOrderForm: React.FC<SalesOrderFormProps> = ({
                 <div className="flex flex-col gap-2">
                   {itemsList.map((itemObj, idx) => {
                     const it = items.find(i => i.id === itemObj.itemId);
-                    const cust = customers.find(c => c.id === itemObj.customerId);
+                    const cust = customers.find(c => c.id === itemObj.counterpartyId);
                     return (
                       <div key={idx} className="flex justify-between items-center bg-white/5 rounded-xl p-3 border border-solid border-white/5 group">
                         <div className="flex flex-col">

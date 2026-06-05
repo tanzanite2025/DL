@@ -20,6 +20,7 @@ import unitsRoutes from './routes/units.routes.js';
 import devRoutes from './routes/dev.routes.js';
 import auditRoutes from './routes/audit.routes.js';
 import searchRoutes from './routes/search.routes.js';
+import counterpartiesRoutes from './routes/counterparties.routes.js';
 
 const app = express();
 
@@ -186,8 +187,9 @@ app.use('/api', itemsRoutes);          // /api/items, /api/bom, /api/assembly
 app.use('/api/units', unitsRoutes);
 app.use('/api/goods-moves', goodsMovesRoutes);
 app.use('/api', financeRoutes);         // /api/finance, /api/payment-accounts, /api/currencies
-app.use('/api', purchaseRoutes);        // /api/suppliers, /api/purchase-orders
-app.use('/api', salesRoutes);           // /api/customers, /api/sales-orders
+app.use('/api', counterpartiesRoutes);   // /api/counterparties
+app.use('/api', purchaseRoutes);        // /api/purchase-orders
+app.use('/api', salesRoutes);           // /api/sales-orders
 app.use('/api', afterSalesRoutes);      // /api/after-sales
 app.use('/api/dev', devRoutes);
 app.use('/api/audit', auditRoutes);
