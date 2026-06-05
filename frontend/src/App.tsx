@@ -26,7 +26,8 @@ import { Users, Warehouse, Package,
   Moon,
   User,
   Search,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ChevronRight
 } from 'lucide-react';
 
 function DashboardShell({
@@ -182,44 +183,96 @@ function DashboardShell({
     <div className={`min-h-screen flex flex-col ${shellBg}`}>
       {/* 顶部导航栏 header */}
       <header className={`w-full ${headerBg} sticky top-0 z-40 backdrop-blur-md bg-opacity-95`}>
-        <div className="max-w-[95%] mx-auto px-4 sm:px-6 md:px-8 py-3.5 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="max-w-[95%] mx-auto px-3 sm:px-6 md:px-8 py-2.5 md:py-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 md:gap-4">
           
           {/* 左侧：Logo */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
-              <span className="text-black font-black italic text-sm tracking-tighter">DL</span>
+          <div className="flex items-center justify-between gap-2.5 md:justify-start md:shrink-0">
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+              <span className="text-black font-black italic text-[13px] md:text-sm tracking-tighter">DL</span>
+            </div>
+
+            <div className="flex md:hidden items-center gap-1.5 shrink-0">
+              <button
+                className="relative h-9 w-9 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5 text-neutral-400 hover:text-white"
+                title={`${t('currentOperator')}: ${userPermission?.username || '---'} (${userPermission?.roleName || '---'})`}
+              >
+                <User size={14} />
+                <span className="absolute right-1.5 bottom-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+              </button>
+
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-9 w-9 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5 text-neutral-400 hover:text-white"
+                title={theme === 'dark' ? '切换到明亮' : '切换到暗色'}
+              >
+                {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              </button>
+
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="h-9 w-9 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5 text-neutral-400 hover:text-white"
+                title={t('settingsLabel')}
+              >
+                <Settings size={14} />
+              </button>
+
+              <button
+                onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
+                className="h-9 px-3 rounded-full flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5 text-neutral-400 hover:text-white"
+              >
+                <Languages size={14} />
+                <span className="text-[10px] font-black">{t('navLanguageText')}</span>
+              </button>
+
+              <button
+                onClick={onLogout}
+                className="h-9 w-9 rounded-full flex items-center justify-center text-rose-400 bg-rose-500/5 hover:bg-rose-500/10 cursor-pointer transition-all active:scale-95"
+                title={`${t('systemIdLabel')}: ${userId.substring(0, 8)}...`}
+              >
+                <LogOut size={14} />
+              </button>
             </div>
           </div>
 
-          {/* 中间：水平选项卡菜单（支持窄屏/移动端溢出横向滑动滚动） */}
-          <nav className="flex items-center bg-black/40 p-1 rounded-full overflow-x-auto scrollbar-none w-full md:w-auto max-w-full justify-start md:justify-center gap-1 select-none">
-            {allowedMenuItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full transition-all duration-200 shrink-0 ${
-                    isActive
-                      ? 'bg-white text-black font-black'
-                      : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <span className={isActive ? 'text-black' : 'text-neutral-400'}>{item.icon}</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
-                </Link>
-              );
-            })}
+          {/* 中间：水平选项卡菜单（移动端用渐隐和箭头提示可横向滑动） */}
+          <div className="relative w-full md:w-auto md:max-w-full">
+            <nav className="flex items-center bg-black/40 p-1 rounded-full overflow-x-auto scrollbar-none w-full md:w-auto max-w-full justify-start md:justify-center gap-1 select-none pr-8 md:pr-1 scroll-smooth snap-x snap-mandatory">
+              {allowedMenuItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 md:px-4 md:py-2 rounded-full transition-all duration-200 shrink-0 snap-start ${
+                      isActive
+                        ? 'bg-white text-black font-black shadow-sm'
+                        : 'text-neutral-500 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <span className={isActive ? 'text-black' : 'text-neutral-500'}>{item.icon}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+                  </Link>
+                );
+              })}
 
-            {allowedMenuItems.length === 0 && (
-              <span className="text-rose-500 text-[9px] font-bold px-4 py-1.5 uppercase tracking-wider block shrink-0">
-                {t('errNoPagesAssigned')}
-              </span>
+              {allowedMenuItems.length === 0 && (
+                <span className="text-rose-500 text-[9px] font-bold px-4 py-1.5 uppercase tracking-wider block shrink-0">
+                  {t('errNoPagesAssigned')}
+                </span>
+              )}
+            </nav>
+            {allowedMenuItems.length > 3 && (
+              <>
+                <div className="pointer-events-none md:hidden absolute inset-y-0 right-0 w-12 rounded-r-full bg-gradient-to-l from-white/90 via-white/70 to-transparent dark:from-[#121214] dark:via-[#121214]/70" />
+                <div className="pointer-events-none md:hidden absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-black/5 border border-black/5 flex items-center justify-center text-neutral-500">
+                  <ChevronRight size={13} />
+                </div>
+              </>
             )}
-          </nav>
+          </div>
 
           {/* 右侧：辅助操作区（系统配置、语言切换与注销） */}
-          <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
+          <div className="hidden md:flex items-center gap-3 shrink-0 self-end md:self-auto">
             {/* 操作员信息 */}
             <button
               className="text-[10px] font-black tracking-wider text-neutral-400 hover:text-white px-4 py-2 rounded-full flex items-center justify-center gap-1.5 h-10 cursor-pointer transition-all active:scale-95 bg-white/2 hover:bg-white/5"
@@ -271,7 +324,7 @@ function DashboardShell({
       </header>
 
       {/* 主工作区 - 最大宽度 95%，充分利用屏幕空间 */}
-      <main className="flex-1 w-full max-w-[95%] mx-auto px-4 sm:px-6 md:px-8 py-8 pb-24 flex flex-col gap-8">
+      <main className="flex-1 w-full max-w-[95%] mx-auto px-4 sm:px-6 md:px-8 py-4 md:py-8 pb-24 flex flex-col gap-8">
         <Routes>
           {userPermission?.canAccessUsers && (
             <Route

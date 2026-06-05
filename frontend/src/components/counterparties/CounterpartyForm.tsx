@@ -110,8 +110,8 @@ export const CounterpartyForm: React.FC<CounterpartyFormProps> = ({
           required
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="flex h-12 items-center gap-3 rounded-2xl bg-[#1c1c1e]/50 px-4 text-sm text-neutral-300">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <label className="flex h-12 items-center gap-2 sm:gap-3 rounded-2xl bg-[#1c1c1e]/50 px-3 sm:px-4 text-sm text-neutral-300">
             <input
               type="checkbox"
               checked={customerSelected}
@@ -120,7 +120,7 @@ export const CounterpartyForm: React.FC<CounterpartyFormProps> = ({
             />
             <span>客户</span>
           </label>
-          <label className="flex h-12 items-center gap-3 rounded-2xl bg-[#1c1c1e]/50 px-4 text-sm text-neutral-300">
+          <label className="flex h-12 items-center gap-2 sm:gap-3 rounded-2xl bg-[#1c1c1e]/50 px-3 sm:px-4 text-sm text-neutral-300">
             <input
               type="checkbox"
               checked={supplierSelected}

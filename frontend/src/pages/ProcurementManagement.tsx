@@ -424,7 +424,121 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
                 )
               }
             >
-              <div className="overflow-x-auto w-full">
+              <div className="md:hidden flex flex-col gap-3">
+                {purchaseOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="rounded-2xl border border-white/10 bg-white/3 p-4 flex flex-col gap-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-mono text-xs font-black text-neutral-200 truncate">
+                          {order.orderNo}
+                        </div>
+                        <div className="text-[9px] font-mono text-neutral-500 mt-1">
+                          {new Date(order.orderDate).toLocaleDateString('zh-CN')}
+                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        {order.status === 'DRAFT' && (
+                          <UdsBadge status="default">{t('statusDraft')}</UdsBadge>
+                        )}
+                        {order.status === 'CONFIRMED' && (
+                          <UdsBadge status="alert">{t('statusConfirmed')}</UdsBadge>
+                        )}
+                        {order.status === 'RECEIVED' && (
+                          <UdsBadge status="healthy">{t('statusReceived')}</UdsBadge>
+                        )}
+                        {order.status === 'CLOSED' && (
+                          <UdsBadge status="critical">{t('statusClosed')}</UdsBadge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 text-xs">
+                      <div className="rounded-xl bg-black/20 p-3">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">
+                          {t('selectSupplier')}
+                        </div>
+                        <div className="font-semibold text-neutral-200 truncate">
+                          {order.counterparty.name}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl bg-black/20 p-3">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">
+                          {t('selectItem')}
+                        </div>
+                        <div className="font-semibold text-neutral-200 truncate">
+                          {order.item.name}
+                        </div>
+                        <div className="text-[9px] font-mono text-neutral-500 mt-0.5">
+                          {order.item.code}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl bg-black/20 p-3">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">
+                          币种/金额
+                        </div>
+                        <div className="font-mono text-sm font-black text-neutral-200">
+                          {order.currency?.symbol}{order.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl bg-black/20 p-3">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-neutral-500 mb-1">
+                          {t('qtyCol')}
+                        </div>
+                        <div className="font-mono text-sm font-black text-neutral-200">
+                          {order.qty} {order.item.unit}
+                        </div>
+                        {order.receivedQty > 0 && (
+                          <div className="text-[9px] text-emerald-500 mt-1">
+                            已收 {order.receivedQty}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      {order.status !== 'RECEIVED' && order.status !== 'CLOSED' && order.receivedQty < order.qty && (
+                        <UdsButton
+                          variant="ghost"
+                          className="h-8 flex-1 px-3 rounded-full text-[9px] !font-bold"
+                          onClick={() => startReceiving(order)}
+                        >
+                          <TruckIcon size={11} className="mr-1" /> {t('receiveGoods')}
+                        </UdsButton>
+                      )}
+                      <UdsButton
+                        variant="ghost"
+                        className="h-8 w-8 !p-0 rounded-full border-none text-neutral-400 hover:text-white"
+                        onClick={() => startEditOrder(order)}
+                      >
+                        <Edit3 size={12} />
+                      </UdsButton>
+                      <UdsButton
+                        variant="ghost"
+                        className="h-8 w-8 !p-0 rounded-full border-none text-rose-500 hover:text-rose-400 hover:bg-rose-500/10"
+                        onClick={() => handleDeleteOrder(order.id)}
+                      >
+                        <Trash2 size={12} />
+                      </UdsButton>
+                    </div>
+                  </div>
+                ))}
+
+                {purchaseOrders.length === 0 && (
+                  <div className="text-center py-6 text-[10px] font-mono text-neutral-600">
+                    {t('noPurchaseOrders')}
+                  </div>
+                )}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto w-full">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-dashed border-white/10">

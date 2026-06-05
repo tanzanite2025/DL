@@ -15,13 +15,13 @@ export const UdsButton: React.FC<ButtonProps> = ({ variant = 'primary', children
   let variantStyle = "";
   if (variant === 'primary') {
     // 主操作：rounded-full (大胶囊) + h-11 + font-black + text-[10px] + uppercase + tracking-widest
-    variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-white text-black hover:bg-neutral-200";
+    variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-white text-black border border-neutral-200 shadow-sm hover:bg-neutral-200";
   } else if (variant === 'secondary') {
     // 辅助按钮
     variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-[#1c1c1e] text-white border border-[#2c2c2e] hover:bg-neutral-800";
   } else if (variant === 'ghost') {
-    // 辅助/幽灵按钮：与主按钮保持同高 (h-11 px-6)，仅通过边框与背景区分
-    variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-transparent text-neutral-400 border border-dashed border-neutral-800 hover:text-white hover:border-neutral-600";
+    // 次级动作也必须像按钮：保留胶囊底和实线边框，避免只像一段文字。
+    variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-white/5 text-neutral-300 border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20";
   } else if (variant === 'critical') {
     variantStyle = "rounded-full h-11 px-6 font-black text-[10px] uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20";
   }
@@ -55,8 +55,8 @@ export const UdsCard: React.FC<CardProps> = ({ title, action, children, classNam
       {(title || action) && (
         <div className="relative z-10 flex items-center justify-between mb-4 border-b border-solid border-white/5 pb-3">
           {title && (
-            // 二级标题 (Card Title): text-[15px] + font-black + tracking-tighter + italic + uppercase
-            <h2 className="text-[15px] font-black tracking-tighter italic uppercase text-neutral-200">
+            // 二级标题：低于顶部导航权重，避免卡片标题压过页面结构。
+            <h2 className="text-[13px] font-black uppercase text-neutral-200">
               {title}
             </h2>
           )}
@@ -114,8 +114,8 @@ export const UdsHeader: React.FC<HeaderProps> = ({ title, description, actions, 
     <div className={`relative flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 md:px-8 md:py-6 rounded-[32px] bg-[#1c1c1e]/20 ${className}`}>
       <div className="absolute inset-0 bg-gradient-to-br from-white/3 via-transparent to-transparent pointer-events-none rounded-[32px]" />
       <div className="relative z-10 flex flex-col gap-1.5">
-        {/* 一级标题 (Module Title): text-[16px] + font-black + tracking-tighter + italic + uppercase */}
-        <h1 className="text-[16px] font-black tracking-tighter italic uppercase text-white">
+        {/* 一级标题：页面级标题保留强调，但不超过导航太多。 */}
+        <h1 className="text-[14px] font-black uppercase text-white">
           {title}
         </h1>
         {description && (
