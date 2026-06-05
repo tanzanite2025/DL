@@ -3,7 +3,7 @@ import { UdsHeader, UdsCard, UdsButton, UdsInput, UdsSelect, UdsBadge } from '..
 import { AuditLogModal } from '../components/uds/AuditLogModal';
 import { GoodsMovementForm } from '../components/uds/GoodsMovementForm';
 import { PurchaseOrderForm } from '../components/uds/PurchaseOrderForm';
-import { CounterpartyForm } from '../components/counterparties/CounterpartyForm';
+import { CounterpartyFormModal } from '../components/counterparties/CounterpartyFormModal';
 import { CounterpartyPicker } from '../components/counterparties/CounterpartyPicker';
 import { useI18n } from '../i18n/I18nContext';
 import { Users, Trash2, Edit3, TruckIcon } from 'lucide-react';
@@ -29,7 +29,7 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
 
   // 供应商表单状态
   const [editingSupplier, setEditingSupplier] = useState<Counterparty | null>(null);
-  const [isCounterpartyFormOpen, setIsCounterpartyFormOpen] = useState(false);
+  const [isCounterpartyModalOpen, setIsCounterpartyModalOpen] = useState(false);
 
   // 采购订单表单状态
   const [orderCounterpartyId, setOrderCounterpartyId] = useState('');
@@ -55,12 +55,17 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
   // ==================== 供应商管理函数 ====================
   const clearSupplierForm = () => {
     setEditingSupplier(null);
-    setIsCounterpartyFormOpen(false);
+    setIsCounterpartyModalOpen(false);
+  };
+
+  const startCreateSupplier = () => {
+    setEditingSupplier(null);
+    setIsCounterpartyModalOpen(true);
   };
 
   const startEditSupplier = (supplier: Counterparty) => {
     setEditingSupplier(supplier);
-    setIsCounterpartyFormOpen(true);
+    setIsCounterpartyModalOpen(true);
   };
 
   const handleDeleteSupplier = async (id: string) => {
@@ -225,28 +230,20 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
         // ==================== 供应商管理 TAB ====================
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* 左侧：供应商表单 */}
-          <div className="lg:col-span-5">
-            <CounterpartyForm
-              title={editingSupplier ? t('editSupplier') : t('registerSupplier')}
-              initialValue={editingSupplier}
-              defaultRole="supplier"
-              onSubmit={async (payload) => {
-                if (editingSupplier) {
-                  await updateSupplier(editingSupplier.id, payload);
-                  showToast(t('supplierUpdatedSuccess'), 'success');
-                } else {
-                  await createSupplier(payload);
-                  showToast(t('supplierCreatedSuccess'), 'success');
-                }
-                clearSupplierForm();
-              }}
-              onCancel={editingSupplier || isCounterpartyFormOpen ? clearSupplierForm : undefined}
-            />
-          </div>
-
-          {/* 右侧：供应商列表 */}
-          <div className="lg:col-span-7">
-            <UdsCard title={t('supplierList')}>
+          <div className="lg:col-span-12">
+            <UdsCard
+              title={t('supplierList')}
+              action={
+                <UdsButton
+                  type="button"
+                  variant="primary"
+                  className="h-9 px-4 text-[10px] font-black uppercase tracking-widest"
+                  onClick={startCreateSupplier}
+                >
+                  {t('registerSupplier')}
+                </UdsButton>
+              }
+            >
               <div className="flex flex-col gap-4">
                 {suppliers.map((supplier: Counterparty) => (
                   <div
@@ -547,6 +544,24 @@ export const ProcurementManagement: React.FC<ProcurementManagementProps> = ({ to
       )}
 
       {/* UDS 规范采购收货登记 Modal 弹窗 */}
+      <CounterpartyFormModal
+        isOpen={isCounterpartyModalOpen}
+        title={editingSupplier ? t('editSupplier') : t('registerSupplier')}
+        initialValue={editingSupplier}
+        defaultRole="supplier"
+        onSubmit={async (payload) => {
+          if (editingSupplier) {
+            await updateSupplier(editingSupplier.id, payload);
+            showToast(t('supplierUpdatedSuccess'), 'success');
+          } else {
+            await createSupplier(payload);
+            showToast(t('supplierCreatedSuccess'), 'success');
+          }
+          clearSupplierForm();
+        }}
+        onClose={clearSupplierForm}
+      />
+
       {receivingOrderId && (() => {
         const order = purchaseOrders.find(o => o.id === receivingOrderId);
         if (!order) return null;

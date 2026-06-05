@@ -23,6 +23,7 @@ interface CounterpartyFormProps {
   defaultRole: 'customer' | 'supplier';
   onSubmit: (payload: CounterpartyFormPayload) => Promise<void>;
   onCancel?: () => void;
+  action?: React.ReactNode;
 }
 
 export const CounterpartyForm: React.FC<CounterpartyFormProps> = ({
@@ -31,6 +32,7 @@ export const CounterpartyForm: React.FC<CounterpartyFormProps> = ({
   defaultRole,
   onSubmit,
   onCancel,
+  action,
 }) => {
   const defaultRoleState = useMemo(() => {
     if (initialValue) {
@@ -72,7 +74,7 @@ export const CounterpartyForm: React.FC<CounterpartyFormProps> = ({
   }, [defaultRoleState.customer, defaultRoleState.supplier, initialValue]);
 
   return (
-    <UdsCard title={title}>
+    <UdsCard title={title} action={action}>
       <form
         className="flex flex-col gap-4"
         onSubmit={async (event) => {
@@ -130,11 +132,13 @@ export const CounterpartyForm: React.FC<CounterpartyFormProps> = ({
         </div>
         {roleError && <span className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">{roleError}</span>}
 
-        <UdsInput label="联系人" value={contactPerson} onChange={(event) => setContactPerson(event.target.value)} />
-        <UdsInput label="电话" value={phone} onChange={(event) => setPhone(event.target.value)} />
-        <UdsInput label="邮箱" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        <UdsInput label="地址" value={address} onChange={(event) => setAddress(event.target.value)} />
-        <UdsInput label="备注" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UdsInput label="联系人" value={contactPerson} onChange={(event) => setContactPerson(event.target.value)} />
+          <UdsInput label="电话" value={phone} onChange={(event) => setPhone(event.target.value)} />
+          <UdsInput label="邮箱" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <UdsInput label="地址" value={address} onChange={(event) => setAddress(event.target.value)} />
+          <UdsInput label="备注" value={remarks} onChange={(event) => setRemarks(event.target.value)} />
+        </div>
 
         <div className="flex justify-end gap-2 pt-2">
           {onCancel ? (
