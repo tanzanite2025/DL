@@ -7,7 +7,7 @@ import { useItems } from '../hooks/useItems';
 import { useUnits } from '../hooks/useUnits';
 import { useCurrencies } from '../hooks/useCurrencies';
 import { bomApi } from '../services/api';
-import { ProductFormPanel } from '../components/products/ProductFormPanel';
+import { ProductFormModal } from '../components/products/ProductFormModal';
 import { ProductLedger } from '../components/products/ProductLedger';
 import { BomConfigModal } from '../components/products/BomConfigModal';
 
@@ -40,6 +40,7 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
   const [itemCost, setItemCost] = useState('0');
   const [itemCurrencyId, setItemCurrencyId] = useState('');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // BOM 配置状态（仅用于新建 BOM 成品）
   const [bomComponents, setBomComponents] = useState<BomComponent[]>([]);
@@ -108,6 +109,7 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
       setItemCost('0');
       setItemCurrencyId('');
       setEditingItemId(null);
+      setIsProductModalOpen(false);
     } catch (error: any) {
       showToast(error.message || t('errItemFormRequired'), 'error');
     }
@@ -121,7 +123,8 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
     setItemUnit(item.unit);
     setItemDescription(item.description || '');
     setItemCost(item.cost != null ? String(item.cost) : '0');
-    // setItemCurrencyId(item.currencyId || ''); // 物料币种暂不参与类型系统
+    setItemCurrencyId(item.currencyId || item.currency?.id || '');
+    setIsProductModalOpen(true);
   };
 
   // 取消编辑
@@ -132,7 +135,19 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
     setItemUnit('件');
     setItemDescription('');
     setItemCost('0');
-    // setItemCurrencyId('');
+    setItemCurrencyId('');
+    setIsProductModalOpen(false);
+  };
+
+  const startCreateItem = () => {
+    setEditingItemId(null);
+    setItemCode('');
+    setItemName('');
+    setItemUnit('件');
+    setItemDescription('');
+    setItemCost('0');
+    setItemCurrencyId('');
+    setIsProductModalOpen(true);
   };
 
   // 删除产品
@@ -275,31 +290,13 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
         description={t('productsDesc')}
       />
 
+      <div className="flex justify-end">
+        <UdsButton variant="primary" onClick={startCreateItem}>
+          {t('registerProduct')}
+        </UdsButton>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* 左侧：产品表单 */}
-        <div className="lg:col-span-5">
-          <ProductFormPanel
-            editingItemId={editingItemId}
-            itemCode={itemCode}
-            itemName={itemName}
-            itemUnit={itemUnit}
-            itemDescription={itemDescription}
-            itemCost={itemCost}
-            itemCurrencyId={itemCurrencyId}
-            units={units}
-            currencies={currencies}
-            onItemCodeChange={setItemCode}
-            onItemNameChange={setItemName}
-            onItemUnitChange={setItemUnit}
-            onItemDescriptionChange={setItemDescription}
-            onItemCostChange={setItemCost}
-            onItemCurrencyIdChange={setItemCurrencyId}
-            onSubmit={handleSaveItem}
-            onCancel={cancelEdit}
-          />
-        </div>
- 
-        {/* 右侧：列表账册 */}
         <ProductLedger
           materials={materials}
           products={products}
@@ -310,6 +307,26 @@ export const ProductsManagement: React.FC<ProductsManagementProps> = ({ token: _
         />
       </div>
       
+      <ProductFormModal
+        isOpen={isProductModalOpen}
+        editingItemId={editingItemId}
+        itemCode={itemCode}
+        itemName={itemName}
+        itemUnit={itemUnit}
+        itemDescription={itemDescription}
+        itemCost={itemCost}
+        itemCurrencyId={itemCurrencyId}
+        units={units}
+        currencies={currencies}
+        onItemCodeChange={setItemCode}
+        onItemNameChange={setItemName}
+        onItemUnitChange={setItemUnit}
+        onItemDescriptionChange={setItemDescription}
+        onItemCostChange={setItemCost}
+        onItemCurrencyIdChange={setItemCurrencyId}
+        onSubmit={handleSaveItem}
+        onClose={cancelEdit}
+      />
 
       <BomConfigModal
         isOpen={isBomModalOpen}

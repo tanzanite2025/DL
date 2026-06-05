@@ -25,7 +25,7 @@ export const ProductLedger: React.FC<ProductLedgerProps> = ({
   const { t } = useI18n();
 
   return (
-    <div className="lg:col-span-7 flex flex-col gap-8">
+    <div className="lg:col-span-12 flex flex-col gap-8">
       {/* 原材料账册 */}
       <UdsCard title={t('registeredProductLedger') || '原材料/零部件账册'}>
         <div className="overflow-x-auto w-full">

@@ -81,10 +81,10 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!counterpartyId || !itemId || !warehouseId) {
-      showToast('客户 / 产品 / 退回仓库 不能为空', 'error');
+      showToast('客户 / 产品 / 退回仓库不能为空', 'error');
       return;
     }
 
@@ -115,56 +115,56 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-3xl">
+      <div className="relative w-full max-w-4xl">
         <UdsCard title={title}>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[75vh] overflow-y-auto pr-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <UdsInput
                 label="数量"
                 type="number"
                 value={qty}
-                onChange={(e) => setQty(e.target.value)}
+                onChange={(event) => setQty(event.target.value)}
               />
               <CounterpartyPicker
-                label="瀹㈡埛"
+                label="客户"
                 value={counterpartyId}
                 counterparties={counterparties}
                 onChange={setCounterpartyId}
-                placeholder="璇烽€夋嫨瀹㈡埛"
+                placeholder="请选择客户"
                 required
               />
               <UdsInput
                 label="寄出地址"
                 value={shipFromAddress}
-                onChange={(e) => setShipFromAddress(e.target.value)}
+                onChange={(event) => setShipFromAddress(event.target.value)}
               />
               <UdsInput
                 label="寄出单号"
                 value={shipmentTrackingNumber}
-                onChange={(e) => setShipmentTrackingNumber(e.target.value)}
+                onChange={(event) => setShipmentTrackingNumber(event.target.value)}
               />
               <UdsSelect
                 label="产品"
                 value={itemId}
-                onChange={(e) => setItemId(e.target.value)}
+                onChange={(event) => setItemId(event.target.value)}
                 options={[
                   { value: '', label: '请选择产品' },
-                  ...items.map(i => ({ value: i.id, label: i.name })),
+                  ...items.map((item) => ({ value: item.id, label: item.name })),
                 ]}
               />
               <UdsSelect
                 label="退回仓库"
                 value={warehouseId}
-                onChange={(e) => setWarehouseId(e.target.value)}
+                onChange={(event) => setWarehouseId(event.target.value)}
                 options={[
                   { value: '', label: '请选择退回仓库' },
-                  ...warehouses.map(w => ({ value: w.id, label: w.name })),
+                  ...warehouses.map((warehouse) => ({ value: warehouse.id, label: warehouse.name })),
                 ]}
               />
               <UdsSelect
                 label="类型"
                 value={type}
-                onChange={(e) => setType(e.target.value as any)}
+                onChange={(event) => setType(event.target.value as any)}
                 options={[
                   { value: 'REPAIR', label: '返修' },
                   { value: 'RETURN', label: '退货' },
@@ -175,22 +175,22 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
                 label="售后日期"
                 type="date"
                 value={processedDate}
-                onChange={(e) => setProcessedDate(e.target.value)}
+                onChange={(event) => setProcessedDate(event.target.value)}
               />
               <UdsInput
                 label="寄回地址"
                 value={shipBackAddress}
-                onChange={(e) => setShipBackAddress(e.target.value)}
+                onChange={(event) => setShipBackAddress(event.target.value)}
               />
               <UdsInput
                 label="备注"
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={(event) => setNote(event.target.value)}
               />
               <UdsSelect
                 label="状态"
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(event) => setStatus(event.target.value as any)}
                 options={[
                   { value: 'PENDING', label: '待处理' },
                   { value: 'IN_PROGRESS', label: '处理中' },
@@ -200,7 +200,7 @@ export const AfterSalesCaseModal: React.FC<AfterSalesCaseModalProps> = ({
               />
             </div>
 
-            <div className="flex justify-between gap-3 mt-2">
+            <div className="flex justify-end gap-3 mt-2">
               <UdsButton
                 type="button"
                 variant="ghost"

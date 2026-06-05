@@ -22,6 +22,7 @@ interface ProductFormPanelProps {
   onItemCurrencyIdChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  showCancelAction?: boolean;
 }
 
 export const ProductFormPanel: React.FC<ProductFormPanelProps> = ({
@@ -42,6 +43,7 @@ export const ProductFormPanel: React.FC<ProductFormPanelProps> = ({
   onItemCurrencyIdChange,
   onSubmit,
   onCancel,
+  showCancelAction = false,
 }) => {
   const { t } = useI18n();
 
@@ -49,7 +51,7 @@ export const ProductFormPanel: React.FC<ProductFormPanelProps> = ({
     <UdsCard
       title={editingItemId ? t('editProduct') : t('registerProduct')}
       action={
-        editingItemId && (
+        (editingItemId || showCancelAction) && (
           <UdsButton variant="ghost" onClick={onCancel} className="h-7 px-3">
             {t('cancel')}
           </UdsButton>
